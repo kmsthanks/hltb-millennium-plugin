@@ -37,7 +37,7 @@ jobs:
         run: npm install
 
       - name: Validate version matches plugin.json and package.json
-        if: inputs.version != 'dev'
+        if: ${{ inputs.version != 'dev' && !startsWith(inputs.version, 'pr-') }}
         run: |
           PLUGIN_VERSION=$(jq -r '.version' plugin.json)
           PACKAGE_VERSION=$(jq -r '.version' package.json)
