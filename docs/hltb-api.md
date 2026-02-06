@@ -13,11 +13,11 @@ Our Lua implementation in `backend/hltb.lua` follows these references.
 
 ### Search Endpoint
 
-The search URL is dynamically extracted from HLTB's JavaScript bundles. Fallback: `https://howlongtobeat.com/api/search`
+The search URL is dynamically extracted from HLTB's JavaScript bundles. Fallback: `https://howlongtobeat.com/api/finder`
 
 ### Authentication
 
-Requests require a token from `/api/search/init`. Cached for 5 minutes.
+Requests require a token from the init endpoint, derived from the search URL (e.g., `/api/finder/init`). Cached for 5 minutes.
 
 ### Search Results
 

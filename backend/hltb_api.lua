@@ -33,7 +33,7 @@ function M.get_auth_token(force_refresh)
     logger:info("Fetching auth token...")
 
     local timestamp_ms = math.floor(now * 1000)
-    local url = endpoints.BASE_URL .. "api/search/init?t=" .. timestamp_ms
+    local url = endpoints.get_init_url() .. "?t=" .. timestamp_ms
 
     local response, err = http.get(url, {
         headers = {

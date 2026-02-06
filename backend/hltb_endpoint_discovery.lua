@@ -6,7 +6,7 @@
 
     HLTB's API is undocumented and the search endpoint path has changed in the past.
     Dynamic endpoint detection (used by other HLTB client projects) allows the plugin
-    to adapt to API changes without code updates. Falls back to "api/search" if
+    to adapt to API changes without code updates. Falls back to "api/finder" if
     discovery fails.
 ]]
 
@@ -19,7 +19,7 @@ M.BASE_URL = "https://howlongtobeat.com/"
 M.REFERER_HEADER = M.BASE_URL
 M.TIMEOUT = 60                        -- HTTP request timeout in seconds
 M.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-M.SEARCH_URL_FALLBACK = M.BASE_URL .. "api/search"  -- Used when dynamic endpoint discovery fails
+M.SEARCH_URL_FALLBACK = M.BASE_URL .. "api/finder"  -- Used when dynamic endpoint discovery fails
 
 -- Known non-search API endpoints to skip
 local SKIP_ENDPOINTS = {
@@ -143,6 +143,20 @@ function M.get_search_url()
     end
 
     return cached_search_url
+end
+
+-- Get auth token init URL, derived from the search URL.
+--
+-- Currently assumes the init endpoint is at {search_url}/init, which held
+-- true when the endpoint moved from api/search to api/finder (the init
+-- endpoint moved from api/search/init to api/finder/init accordingly).
+--
+-- If this assumption breaks in the future, we should discover the init URL
+-- dynamically from the JS bundles the same way we discover the search URL.
+-- The init fetch call can be identified by its pattern: a GET request to an
+-- /api/* path that extracts .token from the JSON response.
+function M.get_init_url()
+    return M.get_search_url() .. "/init"
 end
 
 -- Extract NextJS build ID from homepage (for game data requests)
