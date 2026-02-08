@@ -35,7 +35,7 @@ const SettingsContent = () => {
     const value = e.target.value;
     setHorizontalOffset(value);
     const numValue = parseInt(value, 10);
-    if (!isNaN(numValue) && numValue >= 0) {
+    if (!isNaN(numValue)) {
       saveSettings({ ...getSettings(), horizontalOffset: numValue });
       refreshDisplay();
     }
@@ -45,7 +45,7 @@ const SettingsContent = () => {
     const value = e.target.value;
     setVerticalOffset(value);
     const numValue = parseInt(value, 10);
-    if (!isNaN(numValue) && numValue >= 0) {
+    if (!isNaN(numValue)) {
       saveSettings({ ...getSettings(), verticalOffset: numValue });
       refreshDisplay();
     }
@@ -106,19 +106,17 @@ const SettingsContent = () => {
 
   return (
     <>
-      <Field label="Horizontal Offset (px)" description="Distance from edge. Default: 0" bottomSeparator="standard">
+      <Field label="Horizontal Offset (px)" description="Distance from aligned edge. Negative values shift in the opposite direction." bottomSeparator="standard">
         <input
           type="number"
-          min={0}
           value={horizontalOffset}
           onChange={onHorizontalOffsetChange}
           style={{ width: '60px', padding: '4px 8px' }}
         />
       </Field>
-      <Field label="Vertical Offset (px)" description="Distance from edge. Default: 0" bottomSeparator="standard">
+      <Field label="Vertical Offset (px)" description="Distance from aligned edge. Negative values shift in the opposite direction." bottomSeparator="standard">
         <input
           type="number"
-          min={0}
           value={verticalOffset}
           onChange={onVerticalOffsetChange}
           style={{ width: '60px', padding: '4px 8px' }}
