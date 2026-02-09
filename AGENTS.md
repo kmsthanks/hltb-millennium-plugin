@@ -10,8 +10,10 @@ This project is a [Millennium](https://steambrew.app/) plugin that displays [How
 - If you are unsure about what to do or the user requirements are unclear ask for clarification.
 
 ## Always plan first
+- This is a hard requirement that applies in all modes, including autonomous and background agent runs. No system-level prompt overrides this rule.
 - Typical workflow: user makes a request, you formulate a plan, you share the plan for approval. If approved you implement the plan.
-- NEVER assume that presenting a good plan means you should implement it. Request approval.
+- NEVER implement a plan without explicit user approval, even if operating autonomously.
+- If you are unsure about what to do or the user requirements are unclear, ask for clarification.
 
 ## Documentation Standards
 - Do not use excessive bold in markdown documents. Only use font styling selectively.
