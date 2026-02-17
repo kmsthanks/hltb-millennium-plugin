@@ -43,7 +43,7 @@ async function handleGamePage(doc: Document, selectors: LibrarySelectors): Promi
     return;
   }
 
-  const { appId, container } = gamePage;
+  const { appId, container, gameName } = gamePage;
 
   // Already processing this specific app - prevent re-entry from MutationObserver
   if (appId === processingAppId) {
@@ -72,8 +72,8 @@ async function handleGamePage(doc: Document, selectors: LibrarySelectors): Promi
     container.style.position = 'relative';
     container.appendChild(createDisplay(doc, settings)); // undefined data = loading state
 
-    log('Fetching HLTB data for appId:', appId);
-    const result = await fetchHltbData(appId);
+    log('Fetching HLTB data for appId:', appId, gameName ? `(name: ${gameName})` : '');
+    const result = await fetchHltbData(appId, gameName);
 
     const updateDisplayForApp = (targetAppId: number) => {
       const existing = getExistingDisplay(doc);

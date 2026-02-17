@@ -41,6 +41,7 @@ export const LIBRARY_SELECTORS: LibrarySelectors = {
 export interface GamePageInfo {
   appId: number;
   container: HTMLElement;
+  gameName?: string;
 }
 
 // Global Steam/Millennium types

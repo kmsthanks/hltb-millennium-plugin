@@ -34,7 +34,7 @@ local function get_game_name(app_id)
 end
 
 -- Main function called by frontend
-function GetHltbData(app_id)
+function GetHltbData(app_id, fallback_name)
     local success, result = pcall(function()
         logger:info("GetHltbData called for app_id: " .. tostring(app_id))
 
@@ -49,8 +49,14 @@ function GetHltbData(app_id)
             -- No fix, get name from Steam
             local game_name, name_err = get_game_name(app_id)
             if not game_name then
-                logger:error("Could not get game name: " .. (name_err or "unknown"))
-                return json.encode({ success = false, error = "Could not get game name" })
+                -- Fall back to UI-provided name (e.g. for non-Steam games)
+                if fallback_name and fallback_name ~= "" then
+                    logger:info("Using fallback name from UI: " .. fallback_name)
+                    game_name = fallback_name
+                else
+                    logger:error("Could not get game name: " .. (name_err or "unknown"))
+                    return json.encode({ success = false, error = "Could not get game name" })
+                end
             end
 
             logger:info("Raw name: " .. game_name)
