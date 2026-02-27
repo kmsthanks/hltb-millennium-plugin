@@ -50,7 +50,7 @@ Or launch normally and then switch to Big Picture mode.
 ## Testing Changes
 
 - Frontend changes: Press F5 in Steam window
-- Backend (Lua) changes: Full Steam restart required
+- Backend (Lua) changes: `npm run build`, then full Steam restart
 
 ## Running Lua Tests
 
@@ -88,6 +88,7 @@ hltbDebug.logDOM()  // Log DOM structure
 
 ## Common Issues
 
-- Plugin not loading: Check build output, try F5, restart Steam
+- Plugin not loading: Verify the symlink exists in Steam's plugins folder, check build output, try F5, restart Steam
+- Changes not taking effect: Confirm the symlink in `C:\Program Files (x86)\Steam\plugins\` points to your working directory
 - DevTools not opening: Confirm `-dev` flag, check port 8080 isn't in use
 - React Error 130: Steam updated and broke selectors, check for Millennium updates

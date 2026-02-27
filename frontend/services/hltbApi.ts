@@ -16,11 +16,11 @@ interface SteamImportResponse {
   data?: Array<{ steam_id: number; hltb_id: number }>;
 }
 
-const GetHltbData = callable<[{ app_id: number }], string>('GetHltbData');
+const GetHltbData = callable<[{ app_id: number; fallback_name?: string }], string>('GetHltbData');
 const GetHltbDataById = callable<[{ hltb_id: number; app_id: number }], string>('GetHltbDataById');
 const FetchSteamImportRpc = callable<[{ steam_user_id: string }], string>('FetchSteamImport');
 
-async function fetchFromBackend(appId: number): Promise<HltbGameResult | null> {
+async function fetchFromBackend(appId: number, gameName?: string): Promise<HltbGameResult | null> {
   try {
     // Check if we have a cached HLTB ID for this app
     const hltbId = getHltbId(appId);
@@ -31,9 +31,9 @@ async function fetchFromBackend(appId: number): Promise<HltbGameResult | null> {
       // Fetch directly by HLTB ID (skips name search)
       resultJson = await GetHltbDataById({ hltb_id: hltbId, app_id: appId });
     } else {
-      // Standard path: name-based search
+      // Standard path: name-based search (with optional fallback name for non-Steam games)
       log('Calling backend for appId:', appId);
-      resultJson = await GetHltbData({ app_id: appId });
+      resultJson = await GetHltbData({ app_id: appId, fallback_name: gameName });
     }
 
     if (resultJson === undefined || resultJson === null) {
@@ -64,7 +64,7 @@ async function fetchFromBackend(appId: number): Promise<HltbGameResult | null> {
   }
 }
 
-export async function fetchHltbData(appId: number): Promise<FetchResult> {
+export async function fetchHltbData(appId: number, gameName?: string): Promise<FetchResult> {
   const cached = getCache(appId);
 
   if (cached) {
@@ -72,12 +72,12 @@ export async function fetchHltbData(appId: number): Promise<FetchResult> {
     // Always refetch if no game_id (miss) so name fixes can take effect
     const isMiss = cachedData && !cachedData.game_id;
     const shouldRefresh = cached.isStale || isMiss;
-    const refreshPromise = shouldRefresh ? fetchFromBackend(appId) : null;
+    const refreshPromise = shouldRefresh ? fetchFromBackend(appId, gameName) : null;
     log('Cache hit:', appId, cached.isStale ? '(stale)' : isMiss ? '(miss, refetching)' : '(fresh)');
     return { data: cachedData, fromCache: true, refreshPromise };
   }
 
-  const data = await fetchFromBackend(appId);
+  const data = await fetchFromBackend(appId, gameName);
   return { data, fromCache: false, refreshPromise: null };
 }
 
