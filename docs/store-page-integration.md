@@ -158,6 +158,62 @@ Game name can be read from `.apphub_AppName` as a fallback, but the primary appr
 
 None required. The existing `GetHltbData` Lua function accepts `app_id` and optionally `fallback_name`, and returns HLTB completion times. The webkit module calls it the same way the frontend does.
 
+## Shared Settings via Lua Backend
+
+### Problem
+
+The plugin now has two frontend modules (library and store) that need shared settings. The frontend module runs in the Steam client UI and the webkit module runs in store web pages - these are different browser contexts with separate `localStorage`. Settings stored in one are invisible to the other.
+
+### Millennium's built-in settings system
+
+Millennium's SDK includes `BindPluginSettings` and `DefinePluginSetting` which create a Proxy-based settings store with types like `CheckBox`, `DropDown`, `NumberSlider`, etc. The system auto-syncs between modules via IPC, and `__millennium_plugin_settings_parser__` handles backend persistence.
+
+However, this system is:
+- Undocumented (no examples in official docs)
+- Unused by any known plugin (Gratitude, AugmentedSteam, Extendium all roll their own)
+- Potentially incomplete on the Lua side (the Python implementation is a placeholder returning `false`)
+
+### Chosen approach: Lua backend file I/O
+
+Store settings as a JSON file managed by the Lua backend. Both frontend and webkit call backend functions via `callable` to read/write settings. This is the same pattern used by the Gratitude plugin (the only other Lua Millennium plugin with both frontend and webkit modules).
+
+Reference: https://github.com/BlythT/Gratitude-Millennium-Plugin
+
+### Settings schema
+
+```json
+{
+  "showInLibrary": true,
+  "showInStore": true,
+  "showViewDetails": true,
+  "alignRight": true,
+  "alignBottom": true,
+  "horizontalOffset": 0,
+  "verticalOffset": 0
+}
+```
+
+All settings move from frontend localStorage to the backend JSON file. The file is stored alongside the plugin (e.g., `settings.json` in the plugin root).
+
+### Data flow
+
+Saving (frontend only - settings UI is only in the frontend):
+1. User changes a setting in the settings panel
+2. Frontend calls `SaveSettings({ settings_json })` backend function
+3. Backend writes JSON to `settings.json`
+4. Frontend updates its in-memory cache
+
+Reading (both modules):
+1. Module calls `GetSettings()` backend function
+2. Backend reads `settings.json` (or returns defaults if missing)
+3. Module receives settings JSON and uses it
+
+The frontend caches settings in memory after the initial load so that `getSettings()` remains synchronous for the observer and display code. The webkit module calls `GetSettings` once per page load.
+
+### Migration
+
+On first load after the update, the backend returns defaults (file doesn't exist yet). The frontend's old localStorage settings are lost, but the defaults match what most users have. This is acceptable for a minor version bump.
+
 ## Risks and Open Questions
 
 - DOM selector stability: `div.game_details` could change when Steam migrates app pages to React. Monitor the AugmentedSteam project for selector updates.
