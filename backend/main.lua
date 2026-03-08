@@ -212,23 +212,6 @@ function ClearCache()
     return result
 end
 
--- Get all cached results (for frontend init)
-function GetAllCachedResults()
-    local success, result = pcall(function()
-        return json.encode({
-            success = true,
-            data = cache.get_all(),
-        })
-    end)
-
-    if not success then
-        logger:error("GetAllCachedResults error: " .. tostring(result))
-        return json.encode({ success = false, error = tostring(result) })
-    end
-
-    return result
-end
-
 -- Settings management (shared between frontend and webkit)
 function GetSettings()
     local success, result = pcall(function()
@@ -291,7 +274,6 @@ return {
     InitIdCache = InitIdCache,
     GetCacheStats = GetCacheStats,
     ClearCache = ClearCache,
-    GetAllCachedResults = GetAllCachedResults,
     GetSettings = GetSettings,
     SaveSettings = SaveSettings,
 }

@@ -120,16 +120,6 @@ describe("cache", function()
             assert.equals(1000000, stats.oldestTimestamp)
         end)
 
-        it("returns all cached entries via get_all", function()
-            cache.set(111, { game_id = 1 })
-            cache.set(222, { game_id = 2 })
-
-            local all = cache.get_all()
-            assert.is_not_nil(all[111])
-            assert.is_not_nil(all[222])
-            assert.equals(1, all[111].data.game_id)
-        end)
-
         it("handles nil data (not found)", function()
             cache.set(12345, nil)
 

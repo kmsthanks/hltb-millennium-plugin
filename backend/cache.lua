@@ -137,10 +137,6 @@ function M.stats()
     return { count = count, oldestTimestamp = oldest }
 end
 
-function M.get_all()
-    return result_cache
-end
-
 -- ID cache
 
 function M.get_hltb_id(app_id)

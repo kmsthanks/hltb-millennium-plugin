@@ -1,7 +1,6 @@
 import { callable } from '@steambrew/client';
 import type { HltbGameResult, FetchResult } from '../types';
 import { log, logError } from './logger';
-import { getCache, updateLocalCache } from './cache';
 
 interface BackendResponse {
   success: boolean;
@@ -31,9 +30,6 @@ async function fetchFromBackend(appId: number, gameName?: string, forceRefresh?:
       log('Backend error:', result.error);
       return null;
     }
-
-    // Update local in-memory cache (including notFound results)
-    updateLocalCache(appId, result.data ?? null);
 
     return result;
   } catch (e) {

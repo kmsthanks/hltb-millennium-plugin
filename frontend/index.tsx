@@ -6,7 +6,6 @@ import { setupObserver, resetState, disconnectObserver, refreshDisplay } from '.
 import { exposeDebugTools, removeDebugTools } from './debug/tools';
 import { removeStyles } from './display/styles';
 import { removeExistingDisplay } from './display/components';
-import { clearCache, initCache } from './services/cache';
 import { getSettings, saveSettings, initSettings } from './services/settings';
 import { initializeIdCache } from './services/hltbApi';
 
@@ -147,7 +146,6 @@ const SettingsContent = () => {
   const onClearCache = async () => {
     try {
       await ClearCacheRpc();
-      clearCache();
       setMessage('All caches cleared');
     } catch {
       setMessage('Failed to clear cache');
@@ -257,9 +255,8 @@ const SettingsContent = () => {
 export default definePlugin(() => {
   log('HLTB plugin loading...');
 
-  // Start loading settings and cache from backend in background (non-blocking)
+  // Start loading settings from backend in background (non-blocking)
   initSettings();
-  initCache();
 
   Millennium.AddWindowCreateHook?.((context: any) => {
     // Only handle main Steam windows (Desktop or Big Picture)

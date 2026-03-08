@@ -54,7 +54,6 @@ package.loaded["cache"] = {
     get_hltb_id = function() return nil end,
     set_id_mappings = function() end,
     is_id_cache_valid = function() return false end,
-    get_all = function() return {} end,
 }
 
 -- Load main module (this defines GetSettings/SaveSettings as globals)
