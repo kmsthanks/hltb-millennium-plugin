@@ -13,9 +13,11 @@ interface BackendResponse {
   success: boolean;
   error?: string;
   data?: HltbGameResult;
+  fromCache?: boolean;
+  isStale?: boolean;
 }
 
-const GetHltbData = callable<[{ app_id: number; fallback_name?: string }], string>('GetHltbData');
+const GetHltbData = callable<[{ app_id: number; fallback_name?: string; force_refresh?: boolean }], string>('GetHltbData');
 
 export async function fetchHltbData(appId: number, fallbackName?: string): Promise<HltbGameResult | null> {
   try {
@@ -24,6 +26,11 @@ export async function fetchHltbData(appId: number, fallbackName?: string): Promi
 
     const result: BackendResponse = JSON.parse(resultJson);
     if (!result.success || !result.data) return null;
+
+    // Background refresh for stale data (same behavior as library)
+    if (result.fromCache && (result.isStale || (result.data && !result.data.game_id))) {
+      GetHltbData({ app_id: appId, fallback_name: fallbackName, force_refresh: true }).catch(() => {});
+    }
 
     return result.data;
   } catch (e) {
