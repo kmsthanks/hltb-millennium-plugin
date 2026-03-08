@@ -44,6 +44,7 @@ local function fetch_fresh(app_id, fallback_name)
         local match, err = hltb.fetch_game_by_id(hltb_id)
         if match then
             return {
+                searched_name = match.game_name or "",
                 game_id = match.game_id,
                 game_name = match.game_name,
                 comp_main = utils.seconds_to_hours(match.comp_main),

@@ -32,10 +32,8 @@ async function fetchFromBackend(appId: number, gameName?: string, forceRefresh?:
       return null;
     }
 
-    // Update local in-memory cache
-    if (result.data) {
-      updateLocalCache(appId, result.data);
-    }
+    // Update local in-memory cache (including notFound results)
+    updateLocalCache(appId, result.data ?? null);
 
     return result;
   } catch (e) {

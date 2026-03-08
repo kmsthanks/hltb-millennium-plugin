@@ -1,6 +1,9 @@
+import { callable } from '@steambrew/client';
 import { log } from '../services/logger';
 import { LIBRARY_SELECTORS } from '../types';
 import { clearCache, getCacheStats } from '../services/cache';
+
+const ClearCacheRpc = callable<[], string>('ClearCache');
 
 function logDOMStructure(doc: Document, selector?: string): void {
   log('=== DOM Structure Debug ===');
@@ -67,6 +70,7 @@ export function exposeDebugTools(doc: Document): void {
     },
     clearCache: () => {
       clearCache();
+      ClearCacheRpc().catch(() => {});
       log('Cache cleared. Refresh or navigate to a game to fetch fresh data.');
     },
     cacheStats: () => {

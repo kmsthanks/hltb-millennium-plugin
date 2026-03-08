@@ -35,9 +35,10 @@ describe("cache", function()
         mock_time = 1000000
         os.time = function() return mock_time end
         os.remove = function() end
-        io.open = function() return nil end
         package.loaded["cache"] = nil
         cache = require("cache")
+        -- Mock io.open AFTER require so luarocks can load the module
+        io.open = function() return nil end
     end)
 
     after_each(function()
@@ -218,7 +219,7 @@ describe("cache", function()
             }
 
             io.open = function(path)
-                if path:match("cache%.json$") then return mock_file end
+                if path == "/mock/path/cache.json" then return mock_file end
                 return nil
             end
 
@@ -240,7 +241,7 @@ describe("cache", function()
             }
 
             io.open = function(path)
-                if path:match("id_cache%.json$") then return mock_file end
+                if path == "/mock/path/id_cache.json" then return mock_file end
                 return nil
             end
 

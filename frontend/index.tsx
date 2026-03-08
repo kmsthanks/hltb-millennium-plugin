@@ -6,8 +6,7 @@ import { setupObserver, resetState, disconnectObserver, refreshDisplay } from '.
 import { exposeDebugTools, removeDebugTools } from './debug/tools';
 import { removeStyles } from './display/styles';
 import { removeExistingDisplay } from './display/components';
-import { clearCache } from './services/cache';
-import { initCache } from './services/cache';
+import { clearCache, initCache } from './services/cache';
 import { getSettings, saveSettings, initSettings } from './services/settings';
 import { initializeIdCache } from './services/hltbApi';
 
