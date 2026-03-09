@@ -85,14 +85,15 @@ local function prune_result_cache()
 end
 
 function M.get(app_id)
-    local entry = result_cache[app_id]
+    local key = tostring(app_id)
+    local entry = result_cache[key]
     if not entry then return nil end
 
     local age = os.time() - entry.timestamp
 
     -- Hard expiry
     if age > MAX_CACHE_AGE then
-        result_cache[app_id] = nil
+        result_cache[key] = nil
         return nil
     end
 
@@ -101,7 +102,7 @@ function M.get(app_id)
 end
 
 function M.set(app_id, data)
-    result_cache[app_id] = {
+    result_cache[tostring(app_id)] = {
         data = data,
         timestamp = os.time(),
         notFound = data == nil,
@@ -140,14 +141,15 @@ end
 -- ID cache
 
 function M.get_hltb_id(app_id)
-    return id_cache.mappings[app_id]
+    return id_cache.mappings[tostring(app_id)]
 end
 
 function M.set_id_mappings(mappings, steam_user_id)
     local store = {}
     for _, mapping in ipairs(mappings) do
         if mapping.steam_id and mapping.hltb_id and mapping.hltb_id ~= 0 then
-            store[mapping.steam_id] = mapping.hltb_id
+            -- Use string keys to avoid sparse array issues in JSON serialization
+            store[tostring(mapping.steam_id)] = mapping.hltb_id
         end
     end
 
@@ -207,15 +209,13 @@ function M.save_id_cache()
 end
 
 function M.load()
-    -- Load result cache
+    -- Load result cache (keys are already strings from JSON)
     local cached = read_json_file(get_cache_path())
     if cached then
-        -- Convert string keys back to numbers
         result_cache = {}
         for k, v in pairs(cached) do
-            local num_key = tonumber(k)
-            if num_key and type(v) == "table" and v.timestamp then
-                result_cache[num_key] = v
+            if tonumber(k) and type(v) == "table" and v.timestamp then
+                result_cache[k] = v
             end
         end
         local count = 0
@@ -223,23 +223,15 @@ function M.load()
         logger:info("Loaded " .. count .. " result cache entries")
     end
 
-    -- Load ID cache
+    -- Load ID cache (keys are already strings from JSON)
     local id_data = read_json_file(get_id_cache_path())
     if id_data and type(id_data.mappings) == "table" and type(id_data.metadata) == "table" then
-        -- Convert string keys back to numbers
-        local mappings = {}
-        for k, v in pairs(id_data.mappings) do
-            local num_key = tonumber(k)
-            if num_key then
-                mappings[num_key] = v
-            end
-        end
         id_cache = {
-            mappings = mappings,
+            mappings = id_data.mappings,
             metadata = id_data.metadata,
         }
         local count = 0
-        for _ in pairs(mappings) do count = count + 1 end
+        for _ in pairs(id_cache.mappings) do count = count + 1 end
         logger:info("Loaded " .. count .. " ID cache mappings")
     end
 end
