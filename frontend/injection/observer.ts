@@ -1,7 +1,6 @@
-import type { LibrarySelectors } from '../types';
+import type { HltbGameResult, LibrarySelectors } from '../types';
 import { log } from '../services/logger';
 import { fetchHltbData } from '../services/hltbApi';
-import { getCache } from '../services/cache';
 import { getSettings } from '../services/settings';
 import { detectGamePage } from './detector';
 import {
@@ -12,31 +11,47 @@ import {
 import { injectStyles } from '../display/styles';
 
 let currentAppId: number | null = null;
+let currentData: HltbGameResult | null = null;
 let processingAppId: number | null = null;
 let currentDoc: Document | null = null;
 let observer: MutationObserver | null = null;
 
 export function resetState(): void {
   currentAppId = null;
+  currentData = null;
   processingAppId = null;
   currentDoc = null;
 }
 
 export function refreshDisplay(): void {
-  if (!currentDoc || !currentAppId) return;
+  if (!currentDoc || !currentAppId || !currentData) return;
 
   const existing = getExistingDisplay(currentDoc);
-  if (!existing) return;
 
-  const cached = getCache(currentAppId);
-  const data = cached?.entry?.data;
-  if (!data) return;
+  // If display doesn't exist but should, re-trigger detection
+  if (!existing) {
+    const doc = currentDoc;
+    currentAppId = null;
+    currentData = null;
+    processingAppId = null;
+    // Trigger MutationObserver to re-detect and re-inject
+    const marker = doc.createComment('hltb-refresh');
+    doc.body.appendChild(marker);
+    marker.remove();
+    return;
+  }
 
   const settings = getSettings();
-  existing.replaceWith(createDisplay(currentDoc, settings, data));
+  existing.replaceWith(createDisplay(currentDoc, settings, currentData));
 }
 
 async function handleGamePage(doc: Document, selectors: LibrarySelectors): Promise<void> {
+  const settings = getSettings();
+  if (!settings.showInLibrary) {
+    removeExistingDisplay(doc);
+    return;
+  }
+
   const gamePage = await detectGamePage(doc, selectors);
   if (!gamePage) {
     // Silent return - game page not detected (common during DOM transitions)
@@ -63,8 +78,6 @@ async function handleGamePage(doc: Document, selectors: LibrarySelectors): Promi
   currentDoc = doc;
   log('Found game page for appId:', appId);
 
-  const settings = getSettings();
-
   try {
     removeExistingDisplay(doc);
 
@@ -75,35 +88,32 @@ async function handleGamePage(doc: Document, selectors: LibrarySelectors): Promi
     log('Fetching HLTB data for appId:', appId, gameName ? `(name: ${gameName})` : '');
     const result = await fetchHltbData(appId, gameName);
 
-    const updateDisplayForApp = (targetAppId: number) => {
+    const updateDisplay = (data: HltbGameResult | null) => {
+      if (!data) return false;
       const existing = getExistingDisplay(doc);
       if (!existing) return false;
 
-      const cached = getCache(targetAppId);
-      const data = cached?.entry?.data;
-
-      if (data) {
-        log('Updating display:', data.game_name || data.searched_name);
-        existing.replaceWith(createDisplay(doc, settings, data));
-        return true;
-      }
-      return false;
+      log('Updating display:', data.game_name || data.searched_name);
+      existing.replaceWith(createDisplay(doc, settings, data));
+      return true;
     };
 
-    // If game changed during fetch, update display for the new game instead
+    // If game changed during fetch, don't update display
     if (currentAppId !== null && currentAppId !== appId) {
-      log('Game changed during fetch, updating display for current game:', currentAppId);
-      updateDisplayForApp(currentAppId);
+      log('Game changed during fetch, skipping display update');
       return;
     }
 
-    updateDisplayForApp(appId);
+    // Store and display the data
+    currentData = result.data;
+    updateDisplay(result.data);
 
     // Handle background refresh for stale data
     if (result.refreshPromise) {
       result.refreshPromise.then((newData) => {
         if (newData && currentAppId === appId) {
-          updateDisplayForApp(appId);
+          currentData = newData;
+          updateDisplay(newData);
         }
       });
     }

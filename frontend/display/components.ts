@@ -3,8 +3,9 @@ import type { PluginSettings } from '../services/settings';
 
 const CONTAINER_ID = 'hltb-for-millennium';
 
+// Also defined in webkit/storePage.ts (separate build target, can't share code)
 function formatTime(hours: number | null | undefined): string {
-  if (!hours || hours === 0) return '--';
+  if (hours == null || hours <= 0) return '--';
   if (hours < 1) {
     const mins = Math.round(hours * 60);
     return `${mins}m`;

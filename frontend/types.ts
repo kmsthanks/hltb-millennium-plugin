@@ -8,13 +8,6 @@ export interface HltbGameResult {
   comp_100?: number | null;    // hours
 }
 
-// Cache entry for localStorage
-export interface CacheEntry {
-  data: HltbGameResult | null;
-  timestamp: number;
-  notFound: boolean;
-}
-
 // Result from fetchHltbData with stale-while-revalidate support
 export interface FetchResult {
   data: HltbGameResult | null;

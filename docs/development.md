@@ -49,7 +49,7 @@ Or launch normally and then switch to Big Picture mode.
 
 ## Testing Changes
 
-- Frontend changes: Press F5 in Steam window
+- Frontend/webkit changes: Press F5 in Steam window
 - Backend (Lua) changes: `npm run build`, then full Steam restart
 
 ## Running Lua Tests
@@ -81,8 +81,8 @@ Debug tools are exposed via `hltbDebug` in the console:
 ```javascript
 hltbDebug.inspectElement('#hltb-for-millennium')  // Check HLTB display element
 hltbDebug.inspectElement('.NZMJ6g2iVnFsOOp-lDmIP')  // Check Steam container
-hltbDebug.cacheStats()  // View cache statistics
-hltbDebug.clearCache()  // Clear the cache
+await hltbDebug.cacheStats()  // View cache statistics (async, calls backend)
+hltbDebug.clearCache()  // Clear the backend cache
 hltbDebug.logDOM()  // Log DOM structure
 ```
 

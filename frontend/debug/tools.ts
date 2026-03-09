@@ -1,6 +1,9 @@
+import { callable } from '@steambrew/client';
 import { log } from '../services/logger';
 import { LIBRARY_SELECTORS } from '../types';
-import { clearCache, getCacheStats } from '../services/cache';
+
+const ClearCacheRpc = callable<[], string>('ClearCache');
+const GetCacheStatsRpc = callable<[], string>('GetCacheStats');
 
 function logDOMStructure(doc: Document, selector?: string): void {
   log('=== DOM Structure Debug ===');
@@ -66,17 +69,29 @@ export function exposeDebugTools(doc: Document): void {
       });
     },
     clearCache: () => {
-      clearCache();
+      ClearCacheRpc().catch(() => {});
       log('Cache cleared. Refresh or navigate to a game to fetch fresh data.');
     },
-    cacheStats: () => {
-      const stats = getCacheStats();
-      log('Cache entries:', stats.count);
-      if (stats.oldestTimestamp) {
-        const age = Math.round((Date.now() - stats.oldestTimestamp) / (1000 * 60 * 60 * 24));
-        log('Oldest entry:', age, 'days old');
+    cacheStats: async () => {
+      try {
+        const resultJson = await GetCacheStatsRpc();
+        const result = JSON.parse(resultJson);
+        if (!result.success) {
+          log('Failed to get cache stats');
+          return null;
+        }
+        const { resultCache, idCache } = result.data;
+        log('Cache entries:', resultCache.count);
+        if (resultCache.oldestTimestamp) {
+          const age = Math.round((Date.now() / 1000 - resultCache.oldestTimestamp) / (60 * 60 * 24));
+          log('Oldest entry:', age, 'days old');
+        }
+        log('ID mappings:', idCache.count);
+        return result.data;
+      } catch {
+        log('Failed to get cache stats');
+        return null;
       }
-      return stats;
     },
   };
 

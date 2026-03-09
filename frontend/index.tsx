@@ -1,35 +1,73 @@
 import { useState, useEffect } from 'react';
-import { definePlugin, Millennium, IconsModule, Field, DialogButton } from '@steambrew/client';
+import { definePlugin, Millennium, IconsModule, Field, DialogButton, callable } from '@steambrew/client';
 import { log } from './services/logger';
 import { LIBRARY_SELECTORS } from './types';
 import { setupObserver, resetState, disconnectObserver, refreshDisplay } from './injection/observer';
 import { exposeDebugTools, removeDebugTools } from './debug/tools';
 import { removeStyles } from './display/styles';
 import { removeExistingDisplay } from './display/components';
-import { clearCache, getCacheStats } from './services/cache';
-import { getSettings, saveSettings } from './services/settings';
+import { getSettings, saveSettings, initSettings } from './services/settings';
 import { initializeIdCache } from './services/hltbApi';
-import { getIdCacheStats, clearIdCache } from './services/hltbIdCache';
+
+const GetCacheStats = callable<[], string>('GetCacheStats');
+const ClearCacheRpc = callable<[], string>('ClearCache');
 
 let currentDocument: Document | undefined;
 let initializedForUserId: string | null = null;
 
+const STORE_POSITION_OPTIONS = [
+  { value: 'top', label: 'Sidebar start' },
+  { value: 'achievements', label: 'Achievements' },
+  { value: 'details', label: 'Game details' },
+  { value: 'bottom', label: 'Sidebar end' },
+];
+
 const SettingsContent = () => {
   const [message, setMessage] = useState('');
+  const [showInLibrary, setShowInLibrary] = useState(true);
+  const [showInStore, setShowInStore] = useState(true);
   const [horizontalOffset, setHorizontalOffset] = useState('0');
   const [verticalOffset, setVerticalOffset] = useState('0');
   const [showViewDetails, setShowViewDetails] = useState(true);
   const [alignRight, setAlignRight] = useState(true);
   const [alignBottom, setAlignBottom] = useState(true);
+  const [storePosition, setStorePosition] = useState('achievements');
+  const [showStoreViewDetails, setShowStoreViewDetails] = useState(true);
 
   useEffect(() => {
     const settings = getSettings();
+    setShowInLibrary(settings.showInLibrary);
+    setShowInStore(settings.showInStore);
     setHorizontalOffset(String(settings.horizontalOffset));
     setVerticalOffset(String(settings.verticalOffset));
     setShowViewDetails(settings.showViewDetails);
     setAlignRight(settings.alignRight);
     setAlignBottom(settings.alignBottom);
+    setStorePosition(settings.storePosition);
+    setShowStoreViewDetails(settings.showStoreViewDetails);
   }, []);
+
+  const onShowInLibraryChange = (checked: boolean) => {
+    setShowInLibrary(checked);
+    saveSettings({ ...getSettings(), showInLibrary: checked });
+    refreshDisplay();
+  };
+
+  const onShowInStoreChange = (checked: boolean) => {
+    setShowInStore(checked);
+    saveSettings({ ...getSettings(), showInStore: checked });
+  };
+
+  const onStorePositionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setStorePosition(value);
+    saveSettings({ ...getSettings(), storePosition: value as any });
+  };
+
+  const onShowStoreViewDetailsChange = (checked: boolean) => {
+    setShowStoreViewDetails(checked);
+    saveSettings({ ...getSettings(), showStoreViewDetails: checked });
+  };
 
   const onHorizontalOffsetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -69,44 +107,65 @@ const SettingsContent = () => {
     refreshDisplay();
   };
 
-  const onCacheStats = () => {
-    const stats = getCacheStats();
-    const idStats = getIdCacheStats();
+  const onCacheStats = async () => {
+    try {
+      const resultJson = await GetCacheStats();
+      const result = JSON.parse(resultJson);
+      if (!result.success) {
+        setMessage('Failed to get cache stats');
+        return;
+      }
 
-    const parts: string[] = [];
+      const { resultCache, idCache } = result.data;
+      const lines: string[] = [];
 
-    // Result cache stats
-    if (stats.count === 0) {
-      parts.push('Result cache: empty');
-    } else {
-      const age = stats.oldestTimestamp
-        ? Math.round((Date.now() - stats.oldestTimestamp) / (1000 * 60 * 60 * 24))
-        : 0;
-      parts.push(`Result cache: ${stats.count} games, oldest ${age}d`);
+      if (resultCache.count === 0) {
+        lines.push('0 games cached');
+      } else {
+        const age = resultCache.oldestTimestamp
+          ? Math.round((Date.now() / 1000 - resultCache.oldestTimestamp) / (60 * 60 * 24))
+          : 0;
+        lines.push(`${resultCache.count} games cached, oldest ${age}d`);
+      }
+
+      if (idCache.count === 0) {
+        lines.push('0 ID mappings');
+      } else {
+        const age = idCache.ageSeconds
+          ? Math.round(idCache.ageSeconds / (60 * 60 * 24))
+          : 0;
+        lines.push(`${idCache.count} ID mappings, ${age}d old`);
+      }
+
+      setMessage(lines.join('\n'));
+    } catch {
+      setMessage('Failed to get cache stats');
     }
-
-    // ID cache stats
-    if (idStats.count === 0) {
-      parts.push('ID cache: empty');
-    } else {
-      const age = idStats.ageMs
-        ? Math.round(idStats.ageMs / (1000 * 60 * 60 * 24))
-        : 0;
-      parts.push(`ID cache: ${idStats.count} mappings, ${age}d old`);
-    }
-
-    setMessage(parts.join(' | '));
   };
 
-  const onClearCache = () => {
-    clearCache();
-    clearIdCache();
-    setMessage('All caches cleared');
+  const onClearCache = async () => {
+    try {
+      await ClearCacheRpc();
+      setMessage('All caches cleared');
+    } catch {
+      setMessage('Failed to clear cache');
+    }
   };
 
   return (
     <>
-      <Field label="Horizontal Offset (px)" description="Distance from aligned edge. Negative values shift in the opposite direction." bottomSeparator="standard">
+      {/* Library View */}
+      <div style={{ fontSize: '16px', fontWeight: 'bold', padding: '0 0 0', textTransform: 'uppercase', letterSpacing: '1px' }}>Library View</div>
+      <div style={{ fontSize: '11px', color: '#8f98a0', padding: '4px 0 8px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Changes apply immediately</div>
+      <Field label="Show in Library" bottomSeparator="standard">
+        <input
+          type="checkbox"
+          checked={showInLibrary}
+          onChange={(e) => onShowInLibraryChange(e.target.checked)}
+          style={{ width: '20px', height: '20px' }}
+        />
+      </Field>
+      <Field label="Horizontal Offset (px)" description="Distance from edge, negative values OK" bottomSeparator="standard">
         <input
           type="number"
           value={horizontalOffset}
@@ -114,7 +173,7 @@ const SettingsContent = () => {
           style={{ width: '60px', padding: '4px 8px' }}
         />
       </Field>
-      <Field label="Vertical Offset (px)" description="Distance from aligned edge. Negative values shift in the opposite direction." bottomSeparator="standard">
+      <Field label="Vertical Offset (px)" description="Distance from edge, negative values OK" bottomSeparator="standard">
         <input
           type="number"
           value={verticalOffset}
@@ -122,7 +181,7 @@ const SettingsContent = () => {
           style={{ width: '60px', padding: '4px 8px' }}
         />
       </Field>
-      <Field label="Align to Right" description="Position on right side of header. Disable for left side." bottomSeparator="standard">
+      <Field label="Align to Right" bottomSeparator="standard">
         <input
           type="checkbox"
           checked={alignRight}
@@ -130,7 +189,7 @@ const SettingsContent = () => {
           style={{ width: '20px', height: '20px' }}
         />
       </Field>
-      <Field label="Align to Bottom" description="Position at bottom of header. Disable for top." bottomSeparator="standard">
+      <Field label="Align to Bottom" bottomSeparator="standard">
         <input
           type="checkbox"
           checked={alignBottom}
@@ -138,7 +197,7 @@ const SettingsContent = () => {
           style={{ width: '20px', height: '20px' }}
         />
       </Field>
-      <Field label="Show View Details Link" description="Display link to HLTB game page" bottomSeparator="standard">
+      <Field label="Show View Details Link" bottomSeparator="standard">
         <input
           type="checkbox"
           checked={showViewDetails}
@@ -146,19 +205,58 @@ const SettingsContent = () => {
           style={{ width: '20px', height: '20px' }}
         />
       </Field>
+
+      {/* Store View */}
+      <div style={{ fontSize: '16px', fontWeight: 'bold', padding: '28px 0 0', textTransform: 'uppercase', letterSpacing: '1px' }}>Store View</div>
+      <div style={{ fontSize: '11px', color: '#8f98a0', padding: '4px 0 8px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Changes apply on next page load</div>
+      <Field label="Show in Store" bottomSeparator="standard">
+        <input
+          type="checkbox"
+          checked={showInStore}
+          onChange={(e) => onShowInStoreChange(e.target.checked)}
+          style={{ width: '20px', height: '20px' }}
+        />
+      </Field>
+      <Field label="Position" bottomSeparator="standard">
+        <select
+          value={storePosition}
+          onChange={onStorePositionChange}
+          style={{ padding: '4px 8px' }}
+        >
+          {STORE_POSITION_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Show View Details Link" bottomSeparator="standard">
+        <input
+          type="checkbox"
+          checked={showStoreViewDetails}
+          onChange={(e) => onShowStoreViewDetailsChange(e.target.checked)}
+          style={{ width: '20px', height: '20px' }}
+        />
+      </Field>
+
+      {/* Cache */}
+      <div style={{ fontSize: '16px', fontWeight: 'bold', padding: '28px 0 8px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '0' }}>Cache</div>
       <Field label="Cache Statistics" bottomSeparator="standard">
-        <DialogButton onClick={onCacheStats} style={{ padding: '8px 16px' }}>View Stats</DialogButton>
+        <DialogButton onClick={onCacheStats} style={{ padding: '4px 12px' }}>View Stats</DialogButton>
       </Field>
       <Field label="Clear Cache" bottomSeparator="standard">
-        <DialogButton onClick={onClearCache} style={{ padding: '8px 16px' }}>Clear</DialogButton>
+        <DialogButton onClick={onClearCache} style={{ padding: '4px 12px' }}>Clear</DialogButton>
       </Field>
-      {message && <Field description={message} />}
+      {message && <div style={{ fontSize: '12px', color: '#8f98a0', padding: '8px 0' }}>{message.split('\n').map((line, i) => (
+        <div key={i}>{line}</div>
+      ))}</div>}
     </>
   );
 };
 
 export default definePlugin(() => {
   log('HLTB plugin loading...');
+
+  // Start loading settings from backend in background (non-blocking)
+  initSettings();
 
   Millennium.AddWindowCreateHook?.((context: any) => {
     // Only handle main Steam windows (Desktop or Big Picture)
@@ -184,7 +282,6 @@ export default definePlugin(() => {
     exposeDebugTools(doc);
 
     // Initialize ID cache in background (non-blocking)
-    // Uses HLTB's Steam import API to get steam_id -> hltb_id mappings
     // Skip if already successfully initialized for this user ID
     const steamUserId = (window as any).App?.m_CurrentUser?.strSteamID;
     if (steamUserId && steamUserId !== initializedForUserId) {

@@ -1,6 +1,6 @@
 # HLTB for Steam
 
-A [Millennium](https://steambrew.app/) plugin that displays [How Long To Beat](https://howlongtobeat.com/) completion times on game pages in the Steam library.
+A [Millennium](https://steambrew.app/) plugin that displays [How Long To Beat](https://howlongtobeat.com/) completion times on game pages in the Steam library and store.
 
 ![Desktop Mode](example_desktop.png)
 
@@ -8,12 +8,12 @@ A [Millennium](https://steambrew.app/) plugin that displays [How Long To Beat](h
 
 ## Features
 
-- Shows HLTB completion times directly on game pages:
+- Shows HLTB completion times on library game pages and store pages:
   - Main Story
   - Main + Extras
   - Completionist
 - Works in both Desktop and Big Picture modes
-- Caches results locally, optionally clear via the settings page
+- Caches results to disk, optionally clear via the settings page
 - Click "View Details" to open the full HLTB page
 
 ## Requirements
@@ -31,7 +31,7 @@ A [Millennium](https://steambrew.app/) plugin that displays [How Long To Beat](h
 
 ## Usage
 
-Once installed, HLTB data automatically appears on game pages in your Steam library. Simply click on any game to see its completion times displayed on the header image.
+Once installed, HLTB data automatically appears on game pages in your Steam library and on store pages. Simply click on any game to see its completion times.
 
 ## How It Works
 
@@ -42,20 +42,30 @@ When you view a game page:
 1. The plugin detects the Steam App ID from the page
 2. If a cached HLTB ID exists (from the Steam import), it fetches data directly by ID
 3. Otherwise, it falls back to name-based search: queries Steam for the game name, applies fixes, then searches HLTB
-4. Results are cached locally and displayed on the game header
+4. Results are cached to disk and displayed
+
+The same caching and lookup logic is shared between the library and store views.
 
 If your Steam profile is private, the plugin will still work using name-based search but it may be less reliable.
 
 ## Settings
 
-Access settings via Steam menu > Millennium Library Manger > HLTB for Steam.
+Access settings via Steam menu > Millennium Library Manager > HLTB for Steam.
 
-- Align to Right (default = true): Position the box on the right side of the header. Disable for left side.
-- Horizontal Offset (default = 0): Distance offset from the aligned edge.
-- Show View Details Link (default = true): Toggle the link to the HLTB game page on or off.
-- Cache Statistics / Clear Cache: View or clear locally cached HLTB data.
+Library view:
+- Show in Library (default = true): Show or hide HLTB data in the library
+- Horizontal/Vertical Offset (default = 0): Offset from the aligned edge, useful for avoiding Steam UI elements
+- Align to Right / Align to Bottom (default = true): Position the box on the header image
+- Show View Details Link (default = true): Toggle the link to the HLTB game page
 
-The position alignment and offset features are intended to avoid covering Steam UI elements like the custom game logo position "done" button.
+Store view:
+- Show in Store (default = true): Show or hide HLTB data on store pages
+- Position (default = Achievements): Where to insert the HLTB box in the store sidebar
+- Show View Details Link (default = true): Toggle the link to the HLTB game page
+
+Cache:
+- Cache Statistics: View the number of cached games and ID mappings
+- Clear Cache: Clear all cached data
 
 ## Known Limitations
 

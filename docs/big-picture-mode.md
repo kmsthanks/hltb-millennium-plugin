@@ -8,9 +8,11 @@ Both use React/CEF but have different DOM structures. The DOM selectors we chose
 
 ## Current Status
 
-Both modes are supported. The plugin detects the current mode via `SteamClient.UI.GetUIMode()` and uses appropriate selectors for each.
+Both modes are supported for both library and store views.
 
-Mode switching (Desktop to Big Picture and back) is handled by re-initializing when the mode changes.
+Library: the plugin detects the current mode via `SteamClient.UI.GetUIMode()` and uses appropriate selectors for each. Mode switching (Desktop to Big Picture and back) is handled by re-initializing when the mode changes.
+
+Store: Big Picture loads the same `store.steampowered.com` pages as Desktop, so the webkit injection works with the same selectors. The store page renders in a responsive single-column layout in Big Picture but the sidebar elements (`div.rightcol.game_meta_data`, `#achievement_block`, etc.) are present.
 
 ## Testing
 
