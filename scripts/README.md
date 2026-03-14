@@ -1,8 +1,8 @@
 # Developer Scripts
 
-Scripts for maintaining `name_fixes.lua`.
+Scripts for maintaining `game_ids.lua`.
 
-## discover-name-fixes.js
+## discover-game-ids.js
 
 Finds games where automatic HLTB name matching fails by comparing Steam names against HLTB's known mappings. Uses the same sanitize/simplify logic as the plugin to ensure accurate results.
 
@@ -35,7 +35,7 @@ Finds games where automatic HLTB name matching fails by comparing Steam names ag
 ### Usage
 
 ```bash
-node scripts/discover-name-fixes.js
+node scripts/discover-game-ids.js
 ```
 
 ### Configuration
@@ -44,9 +44,9 @@ Edit `PROFILES` in the script to add Steam profile IDs. Profiles must be public 
 
 ### Output
 
-**Phase 1: Validate existing fixes** - Compares entries against HLTB API data. Deviations may be false positives since the API's `hltb_name` field often echoes the Steam name rather than the actual HLTB title.
+**Phase 1: Validate existing game IDs** - Checks that ID-based entries reference valid HLTB games. Also flags potentially redundant entries where the sanitized Steam name would already match without intervention.
 
-**Phase 2: Games needing fixes** - Lists games where neither sanitize nor simplify produces a match, with suggested `name_fixes.lua` entries.
+**Phase 2: Games needing new entries** - Lists games where neither sanitize nor simplify produces a match, with suggested `game_ids.lua` entries in the format `[STEAM_ID] = HLTB_ID, -- HLTB Game Name`.
 
 ## Verifying Entries via Steam API
 
@@ -67,6 +67,6 @@ const ids = [APPID1, APPID2, ...];  // Add your AppIDs here
 "
 ```
 
-Compare the Steam names with your HLTB fix names. Flag entries where:
-- The game title is completely different (wrong AppID or HLTB error)
-- Edition suffixes don't match (e.g., "HD" vs base game, "Definitive Edition" vs original)
+Compare the Steam names with the HLTB game names in the comments. Flag entries where:
+- The game is completely different (wrong AppID or HLTB ID)
+- The HLTB ID points to a different edition than the Steam entry

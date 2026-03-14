@@ -48,7 +48,7 @@ export async function fetchHltbData(appId: number, gameName?: string): Promise<F
   const data = response.data ?? null;
 
   // If backend returned stale cached data, trigger background refresh
-  // Also refetch if no game_id (miss) so name fixes can take effect
+  // Also refetch if no game_id (miss) so game ID overrides can take effect
   const isMiss = data && !data.game_id;
   const shouldRefresh = response.isStale || isMiss;
 

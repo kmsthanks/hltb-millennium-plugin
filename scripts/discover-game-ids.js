@@ -1,13 +1,13 @@
 /**
- * Name Fix Discovery Script
+ * Game ID Discovery Script
  *
  * Fetches Steam libraries via HLTB's Steam import API and identifies games
- * where automatic name matching fails, requiring manual name_fixes.lua entries.
+ * where automatic name matching fails, requiring manual game_ids.lua entries.
  *
  * The script uses the same sanitize/simplify logic as the plugin (via Lua)
  * to ensure consistency between discovery and runtime matching.
  *
- * Usage: node scripts/discover-name-fixes.js
+ * Usage: node scripts/discover-game-ids.js
  *
  * Requirements:
  *   - Node.js 18+ (for native fetch)
@@ -111,20 +111,23 @@ function isWithinThreshold(distance, name1, name2) {
 }
 
 /**
- * Load existing name_fixes.lua entries
+ * Load existing game_ids.lua entries
  */
-function loadExistingFixes() {
-  const fixesPath = join(ROOT_DIR, 'backend', 'name_fixes.lua');
-  const content = readFileSync(fixesPath, 'utf-8');
+function loadExistingIds() {
+  const idsPath = join(ROOT_DIR, 'backend', 'game_ids.lua');
+  const content = readFileSync(idsPath, 'utf-8');
 
-  const fixes = new Map();
-  const regex = /\[(\d+)\]\s*=\s*"([^"]+)"/g;
+  const ids = new Map();
+  const regex = /\[(\d+)\]\s*=\s*(\d+)\s*,\s*--\s*(.+)/g;
   let match;
   while ((match = regex.exec(content)) !== null) {
-    fixes.set(parseInt(match[1], 10), match[2]);
+    ids.set(parseInt(match[1], 10), {
+      hltbId: parseInt(match[2], 10),
+      name: match[3].trim(),
+    });
   }
 
-  return fixes;
+  return ids;
 }
 
 /**
@@ -165,7 +168,7 @@ async function fetchSteamLibrary(profile) {
  * Main entry point
  */
 async function main() {
-  console.log('Name Fix Discovery & Validation Script');
+  console.log('Game ID Discovery & Validation Script');
   console.log('======================================\n');
 
   // Verify Lua is available
@@ -177,9 +180,9 @@ async function main() {
   }
   console.log(`Using Lua interpreter: ${luaCmd}\n`);
 
-  // Load existing fixes
-  const existingFixes = loadExistingFixes();
-  console.log(`Loaded ${existingFixes.size} existing name fixes\n`);
+  // Load existing IDs
+  const existingIds = loadExistingIds();
+  console.log(`Loaded ${existingIds.size} existing game ID mappings\n`);
 
   // Fetch all profiles
   const allGames = new Map();
@@ -202,10 +205,10 @@ async function main() {
 
   console.log(`\nTotal unique games: ${allGames.size}\n`);
 
-  // Filter games that have HLTB data and no existing fix
+  // Filter games that have HLTB data and no existing ID
   const gamesToProcess = [];
   for (const [steamId, game] of allGames) {
-    if (game.hltb_id && game.hltb_id !== 0 && !existingFixes.has(steamId)) {
+    if (game.hltb_id && game.hltb_id !== 0 && !existingIds.has(steamId)) {
       gamesToProcess.push({
         steam_id: steamId,
         steam_name: game.steam_name,
@@ -220,101 +223,104 @@ async function main() {
   const processed = processGamesBatch(luaCmd, gamesToProcess);
 
   // ========================================
-  // PHASE 1: Validate existing name_fixes
+  // PHASE 1: Validate existing game_ids
   // ========================================
   //
-  // Compares name_fixes entries against the Steam import API's hltb_name field.
-  //
-  // KNOWN LIMITATION: The API's hltb_name is often just the Steam name echoed back,
-  // not the actual HLTB game title. For example:
-  //   - API hltb_name: "Borderlands GOTY Enhanced" (Steam's name)
-  //   - Actual HLTB title: "Borderlands: Game of the Year"
-  //   - Both work as search queries and find the same game (ID 1280)
-  //
-  // Proper validation would require HLTB search API calls for each fix (slow, rate-limited).
-  // Deviations flagged here may be false positives - verify manually if needed.
+  // Checks that ID-based entries reference valid HLTB games by cross-referencing
+  // with the Steam import API data. Also checks for redundant entries where the
+  // sanitized Steam name would already match without intervention.
   //
   console.log('='.repeat(50));
-  console.log('PHASE 1: Validating existing name_fixes.lua');
+  console.log('PHASE 1: Validating existing game_ids.lua');
   console.log('='.repeat(50) + '\n');
 
-  // Process fixes through Lua for validation
-  const fixesToValidate = [];
-  for (const [appId, fixedName] of existingFixes) {
+  const validation = { correct: [], idMismatch: [], redundant: [], notInLibrary: [] };
+
+  // Classify entries and collect redundancy check candidates
+  const redundancyCandidates = [];
+  const redundancyMeta = [];
+
+  for (const [appId, entry] of existingIds) {
     const game = allGames.get(appId);
-    if (game && game.hltb_name) {
-      fixesToValidate.push({
+    if (!game || !game.hltb_id) {
+      validation.notInLibrary.push({ appId, entry });
+      continue;
+    }
+
+    if (entry.hltbId === game.hltb_id) {
+      validation.correct.push({ appId, entry, game });
+    } else {
+      validation.idMismatch.push({ appId, entry, game });
+    }
+
+    if (game.hltb_name) {
+      redundancyCandidates.push({
         steam_id: appId,
-        steam_name: fixedName,
+        steam_name: game.steam_name,
         hltb_name: game.hltb_name,
       });
+      redundancyMeta.push({ appId, entry, game });
     }
   }
 
-  const fixValidation = { correct: [], deviations: [], wouldNotMatch: [], notInLibrary: [] };
+  // Batch redundancy check
+  if (redundancyCandidates.length > 0) {
+    const results = processGamesBatch(luaCmd, redundancyCandidates);
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      const { appId, entry, game } = redundancyMeta[i];
+      const sanitizedOk = (result.dist_sanitized === 0 || isWithinThreshold(result.dist_sanitized, result.sanitized, game.hltb_name))
+        && wouldHLTBMatch(result.sanitized, game.hltb_name);
+      const simplifiedOk = (result.dist_simplified === 0 || isWithinThreshold(result.dist_simplified, result.simplified, game.hltb_name))
+        && wouldHLTBMatch(result.simplified, game.hltb_name);
 
-  if (fixesToValidate.length > 0) {
-    const fixResults = processGamesBatch(luaCmd, fixesToValidate);
-
-    for (let i = 0; i < fixesToValidate.length; i++) {
-      const fix = fixesToValidate[i];
-      const result = fixResults[i];
-      const distance = result.dist_sanitized;
-      const levenshteinOk = distance === 0 || isWithinThreshold(distance, fix.steam_name, fix.hltb_name);
-      const substringOk = wouldHLTBMatch(fix.steam_name, fix.hltb_name);
-
-      if (!substringOk) {
-        // Our fix wouldn't find the game via HLTB's substring search
-        fixValidation.wouldNotMatch.push({ appId: fix.steam_id, fixedName: fix.steam_name, hltbName: fix.hltb_name, distance });
-      } else if (levenshteinOk) {
-        fixValidation.correct.push({ appId: fix.steam_id, fixedName: fix.steam_name, hltbName: fix.hltb_name, distance });
-      } else {
-        fixValidation.deviations.push({ appId: fix.steam_id, fixedName: fix.steam_name, hltbName: fix.hltb_name, distance });
+      if (sanitizedOk || simplifiedOk) {
+        validation.redundant.push({
+          appId,
+          entry,
+          steamName: game.steam_name,
+          hltbName: game.hltb_name,
+          sanitized: result.sanitized,
+        });
       }
     }
   }
 
-  for (const [appId, fixedName] of existingFixes) {
-    const game = allGames.get(appId);
-    if (!game || !game.hltb_name) {
-      fixValidation.notInLibrary.push({ appId, fixedName });
+  console.log(`Valid: ${validation.correct.length}`);
+  console.log(`ID mismatch: ${validation.idMismatch.length}`);
+  console.log(`Potentially redundant: ${validation.redundant.length}`);
+  console.log(`Not in library: ${validation.notInLibrary.length}`);
+
+  if (validation.idMismatch.length > 0) {
+    console.log('\nID MISMATCHES (game_ids HLTB ID differs from API):');
+    for (const { appId, entry, game } of validation.idMismatch) {
+      console.log(`  [${appId}]`);
+      console.log(`    game_ids HLTB ID: ${entry.hltbId}`);
+      console.log(`    API HLTB ID:      ${game.hltb_id}`);
+      console.log(`    API name:         "${game.hltb_name}"`);
     }
   }
 
-  console.log(`Matches API hltb_name: ${fixValidation.correct.length}`);
-  console.log(`Would not match (substring check failed): ${fixValidation.wouldNotMatch.length}`);
-  console.log(`Deviations from API: ${fixValidation.deviations.length}`);
-  console.log(`Not in library: ${fixValidation.notInLibrary.length}`);
-
-  if (fixValidation.wouldNotMatch.length > 0) {
-    console.log('\nWOULD NOT MATCH (fix may not find the game):');
-    for (const fix of fixValidation.wouldNotMatch) {
-      console.log(`  [${fix.appId}]`);
-      console.log(`    Our fix:       "${fix.fixedName}"`);
-      console.log(`    API hltb_name: "${fix.hltbName}"`);
-    }
-  }
-
-  if (fixValidation.deviations.length > 0) {
-    console.log('\nDEVIATIONS (may be false positives - see note above):');
-    for (const fix of fixValidation.deviations) {
-      console.log(`  [${fix.appId}]`);
-      console.log(`    Our fix:       "${fix.fixedName}"`);
-      console.log(`    API hltb_name: "${fix.hltbName}"`);
-      console.log(`    Distance: ${fix.distance}`);
+  if (validation.redundant.length > 0) {
+    console.log('\nPOTENTIALLY REDUNDANT (sanitized name already matches):');
+    for (const { appId, steamName, hltbName, sanitized } of validation.redundant) {
+      console.log(`  [${appId}]`);
+      console.log(`    Steam:     "${steamName}"`);
+      console.log(`    Sanitized: "${sanitized}"`);
+      console.log(`    HLTB:      "${hltbName}"`);
     }
   }
 
   // ========================================
-  // PHASE 2: Find games needing new fixes
+  // PHASE 2: Find games needing new entries
   // ========================================
   console.log('\n' + '='.repeat(50));
-  console.log('PHASE 2: Games needing new name_fixes');
+  console.log('PHASE 2: Games needing new game_ids');
   console.log('='.repeat(50) + '\n');
 
   // Find games where neither sanitize nor simplify matches
   // Uses both Levenshtein distance AND HLTB's substring matching simulation
-  const needsFix = [];
+  const needsId = [];
   for (let i = 0; i < gamesToProcess.length; i++) {
     const game = gamesToProcess[i];
     const result = processed[i];
@@ -327,15 +333,16 @@ async function main() {
     const sanitizedSubstring = wouldHLTBMatch(result.sanitized, game.hltb_name);
     const simplifiedSubstring = wouldHLTBMatch(result.simplified, game.hltb_name);
 
-    // Need fix if BOTH checks fail for BOTH sanitized and simplified
+    // Need entry if BOTH checks fail for BOTH sanitized and simplified
     const sanitizedOk = sanitizedLevenshtein && sanitizedSubstring;
     const simplifiedOk = simplifiedLevenshtein && simplifiedSubstring;
 
     if (!sanitizedOk && !simplifiedOk) {
-      needsFix.push({
+      needsId.push({
         steamId: game.steam_id,
         steamName: game.steam_name,
         hltbName: game.hltb_name,
+        hltbId: allGames.get(game.steam_id)?.hltb_id,
         sanitized: result.sanitized,
         simplified: result.simplified,
         distSanitized: result.dist_sanitized,
@@ -346,32 +353,32 @@ async function main() {
     }
   }
 
-  if (needsFix.length === 0) {
-    console.log('No new fixes needed!');
+  if (needsId.length === 0) {
+    console.log('No new entries needed!');
   } else {
-    console.log(`Found ${needsFix.length} games needing fixes:\n`);
+    console.log(`Found ${needsId.length} games needing entries:\n`);
 
-    needsFix.sort((a, b) => a.steamId - b.steamId);
+    needsId.sort((a, b) => a.steamId - b.steamId);
 
-    console.log('Suggested name_fixes.lua entries:');
+    console.log('Suggested game_ids.lua entries:');
     console.log('-'.repeat(40) + '\n');
 
-    for (const fix of needsFix) {
-      const escapedName = fix.hltbName.replace(/"/g, '\\"');
-      console.log(`    [${fix.steamId}] = "${escapedName}",`);
+    for (const entry of needsId) {
+      const escapedName = entry.hltbName.replace(/"/g, '\\"');
+      console.log(`    [${entry.steamId}] = ${entry.hltbId}, -- ${escapedName}`);
     }
 
     console.log('\n\nDetailed breakdown:');
     console.log('-'.repeat(40) + '\n');
 
-    for (const fix of needsFix) {
-      console.log(`AppID ${fix.steamId}:`);
-      console.log(`  Steam:      "${fix.steamName}"`);
-      console.log(`  Sanitized:  "${fix.sanitized}" (dist: ${fix.distSanitized}, substr: ${fix.sanitizedSubstringOk ? 'yes' : 'no'})`);
-      if (fix.simplified !== fix.sanitized) {
-        console.log(`  Simplified: "${fix.simplified}" (dist: ${fix.distSimplified}, substr: ${fix.simplifiedSubstringOk ? 'yes' : 'no'})`);
+    for (const entry of needsId) {
+      console.log(`AppID ${entry.steamId}:`);
+      console.log(`  Steam:      "${entry.steamName}"`);
+      console.log(`  Sanitized:  "${entry.sanitized}" (dist: ${entry.distSanitized}, substr: ${entry.sanitizedSubstringOk ? 'yes' : 'no'})`);
+      if (entry.simplified !== entry.sanitized) {
+        console.log(`  Simplified: "${entry.simplified}" (dist: ${entry.distSimplified}, substr: ${entry.simplifiedSubstringOk ? 'yes' : 'no'})`);
       }
-      console.log(`  HLTB:       "${fix.hltbName}"`);
+      console.log(`  HLTB:       "${entry.hltbName}" (ID: ${entry.hltbId})`);
       console.log();
     }
   }
@@ -384,8 +391,8 @@ async function main() {
   console.log('='.repeat(50) + '\n');
 
   console.log(`Total games analyzed: ${allGames.size}`);
-  console.log(`Existing name_fixes: ${existingFixes.size} (${fixValidation.correct.length} ok, ${fixValidation.wouldNotMatch.length} would not match, ${fixValidation.deviations.length} deviations)`);
-  console.log(`Games needing new fixes: ${needsFix.length}`);
+  console.log(`Existing game_ids: ${existingIds.size} (${validation.correct.length} valid, ${validation.idMismatch.length} ID mismatch, ${validation.redundant.length} redundant)`);
+  console.log(`Games needing new entries: ${needsId.length}`);
 }
 
 main().catch((err) => {

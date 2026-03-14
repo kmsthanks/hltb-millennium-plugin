@@ -8,7 +8,7 @@ allowed-tools: Read, Edit, Bash, AskUserQuestion
 
 Creates a new release of the HLTB for Steam plugin, handling the full release workflow.
 
-Before running this skill, run the name-fix-review skill to ensure that the name fixes are high quality.
+Before running this skill, run the game-id-review skill to ensure that the game IDs are high quality.
 
 ## Usage
 

@@ -1,12 +1,12 @@
 ---
-name: add-name-fix
-description: Add a Steam-to-HLTB game name mapping. Usage: /add-name-fix <appid>, <name>, or "Steam Name" -> "HLTB Name"
+name: add-game-id
+description: Add a Steam-to-HLTB game ID mapping. Usage: /add-game-id <appid>, <name>, or <appid> -> <hltb_id>
 allowed-tools: Read, Edit, WebFetch, WebSearch
 ---
 
-# Add Name Fix
+# Add Game ID
 
-Adds a game name mapping from Steam AppID to HLTB name in `backend/name_fixes.lua`.
+Adds a Steam AppID to HLTB game ID mapping in `backend/game_ids.lua`.
 
 ## Input Formats
 
@@ -14,17 +14,17 @@ The skill accepts three input formats:
 
 ### 1. Steam App ID (preferred)
 ```
-/add-name-fix 1004640
+/add-game-id 1004640
 ```
 
 ### 2. Steam Game Name
 ```
-/add-name-fix "FINAL FANTASY TACTICS - The Ivalice Chronicles"
+/add-game-id "FINAL FANTASY TACTICS - The Ivalice Chronicles"
 ```
 
 ### 3. Full Mapping
 ```
-/add-name-fix 1004640 -> "Final Fantasy Tactics: The Ivalice Chronicles"
+/add-game-id 1004640 -> 169173
 ```
 
 ## Instructions
@@ -43,9 +43,10 @@ The skill accepts three input formats:
 5. Present confirmation summary and ask user to confirm the mapping
 
 ### If given a full mapping (contains ` -> `):
-1. Parse the arguments to extract the AppID and HLTB name
+1. Parse the arguments to extract the AppID and HLTB ID
 2. Verify the AppID by fetching: `https://store.steampowered.com/app/{APPID}`
-3. Proceed directly to adding the mapping
+3. Verify the HLTB ID by fetching: `https://howlongtobeat.com/game/{HLTB_ID}`
+4. Proceed directly to adding the mapping
 
 ### Searching HLTB
 Note: Claude cannot directly access howlongtobeat.com, so use IsThereAnyDeal as a proxy.
@@ -60,23 +61,24 @@ Always present this exact format before asking for user confirmation:
 ```
 - **AppID:** {appid}
 - **Steam name:** "{name from Steam page}"
+- **HLTB ID:** {numeric ID}
 - **HLTB name:** "{exact name from HLTB}"
 - **HLTB page:** {URL}
 ```
 
 ### Adding the mapping (single entry):
-1. Read `backend/name_fixes.lua`
+1. Read `backend/game_ids.lua`
 2. Find the correct position to maintain numerical order (ascending by AppID)
-3. Insert the new mapping: `[{APPID}] = "{HLTB name}",`
+3. Insert the new mapping: `[{APPID}] = {HLTB_ID}, -- {HLTB game name}`
 4. Report the mapping that was added
 
 ## Bulk Additions
 
-When adding many entries at once (e.g., from discover-name-fixes.js output):
+When adding many entries at once (e.g., from discover-game-ids.js output):
 
 1. Append all new entries to the end of the file (before the closing `}`)
 2. Don't worry about sort order or duplicates
-3. Run `/name-fix-review` to sort numerically and remove duplicates
+3. Run `/game-id-review` to sort numerically and remove duplicates
 
 This is much faster than inserting each entry in the correct position.
 
@@ -99,10 +101,6 @@ const ids = [APPID1, APPID2, ...];  // Add your AppIDs here
 "
 ```
 
-Compare the Steam names with your HLTB fix names. Flag entries where:
-- The game title is completely different (wrong AppID or HLTB error)
-- Edition suffixes don't match (e.g., "HD" vs base game, "Definitive Edition" vs original)
-
 ## Example Workflow
 
 For app ID 1004640:
@@ -114,7 +112,8 @@ For app ID 1004640:
 5. Present confirmation:
    - **AppID:** 1004640
    - **Steam name:** "FINAL FANTASY TACTICS - The Ivalice Chronicles"
+   - **HLTB ID:** 169173
    - **HLTB name:** "Final Fantasy Tactics: The Ivalice Chronicles"
    - **HLTB page:** https://howlongtobeat.com/game/169173
 6. User confirms mapping
-7. Insert into name_fixes.lua in numerical order: `[1004640] = "Final Fantasy Tactics: The Ivalice Chronicles",`
+7. Insert into game_ids.lua in numerical order: `[1004640] = 169173, -- Final Fantasy Tactics: The Ivalice Chronicles`

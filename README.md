@@ -69,42 +69,45 @@ Cache:
 
 ## Known Limitations
 
-HLTB uses name based search, and often times the name in HLTB does not match Steam. Most of the time it just works. Occasionally it does not, and so there is a [name fixes](./backend/name_fixes.lua) file. Some internal name simplification is done to handle frequent issues, but there are still some edge cases. Feel free to submit a PR for any additional name fixes.
+The plugin determines the HLTB game ID from two sources: the Steam import API (if your profile is public) and the [game IDs](./backend/game_ids.lua) file, which maps Steam AppIDs directly to HLTB game IDs. If neither source has an entry, the plugin falls back to a name-based search, which usually works but can fail when Steam and HLTB use different names. Feel free to submit a PR for any additional game ID mappings.
 
 Also note that DLC and non-game content will not have HLTB data.
 
-## How to generate a name correction
+## How to add a game ID mapping
 
 We'll use Final Fantasy Tactics for this example.
 
 1. Navigate to the [Steam](https://store.steampowered.com/app/1004640/FINAL_FANTASY_TACTICS__The_Ivalice_Chronicles/) or [Steam Hunters](https://steamhunters.com/apps/1004640/achievements) page
-2. Note the Steam ID from the URL: `1004640`
-3. Find the game in [HLTB](https://howlongtobeat.com/game/169173)
-4. Note the HLTB name for the game: `Final Fantasy Tactics: The Ivalice Chronicles`
+2. Note the Steam App ID from the URL: `1004640`
+3. Find the game on [HLTB](https://howlongtobeat.com/game/169173)
+4. Note the HLTB game ID from the URL: `169173`
 
-Add a line to the name_fixes.lua file like this:
-`[1004640] = "Final Fantasy Tactics: The Ivalice Chronicles",`
+Add a line to the game_ids.lua file like this:
+`[1004640] = 169173, -- Final Fantasy Tactics: The Ivalice Chronicles`
+
+The format is `[STEAM_APPID] = HLTB_ID, -- HLTB Game Name`. The comment with the game name is required so we can recover if HLTB ever changes IDs.
 
 You should add this correction to your local file and verify that it works before submitting a pull request:
-`Steam/plugins/hltb-for-millennium/backend/name_fixes.lua`
+`Steam/plugins/hltb-for-millennium/backend/game_ids.lua`
 
 ## How to submit a pull request (PR) from the Github website
 
 If you are already familiar with PRs that is great, just do your thing. For new users, you can do this process entirely from the Github website, you just need a free Github account.
 
-When you add the name fix, it needs to be:
-* in sorted order by Steam ID
+When you add the game ID mapping, it needs to be:
+* in sorted order by Steam App ID
 * not a duplicate
-* correct syntax including a comma at the end
+* correct syntax: `[APPID] = HLTB_ID, -- Game Name`
+* include a comment with the HLTB game name
 
-An automated check will make sure that all of thes are true before your change can be accepted.
+An automated check will make sure that all of these are true before your change can be accepted.
 
-You **must** test it on your local copy before submitting it. I can't test it for you because I probably don't own the game. Other users can't test it for you because they are in different regions and might have other issues going on. It is very important that you test it first - see intructions in the last section.
+You **must** test it on your local copy before submitting it. I can't test it for you because I probably don't own the game. Other users can't test it for you because they are in different regions and might have other issues going on. It is very important that you test it first - see instructions in the last section.
 
 PR instructions:
 1. Fork this repo (click the "Fork" button at the top right)
 2. Click "Create Fork" to make your own version of the repo - this is where you'll make your edit and then request that the main repo pulls from it
-3. In your fork, navigate to the file you want to edit: `backend/name_fixes.lua`
+3. In your fork, navigate to the file you want to edit: `backend/game_ids.lua`
 4. Click the pencil icon to edit the file
 5. Make your changes, update the commit message to something descriptive, and click "Commit changes"
 6. Go back to the original repo and click "Pull requests" → "New pull request"
@@ -120,9 +123,9 @@ Official Github instructions:
 
 Pull requests are welcome and appreciated! See the [development docs](./docs/README.md).
 
-For name corrections please submit a pull request, direct submissions are not accepted. Automated tests will run and check for common problems.
+For game ID additions please submit a pull request, direct submissions are not accepted. Automated tests will run and check for common problems.
 
-Before submitting a name correction fix, please test it locally by editing: `Steam/plugins/hltb-for-millennium/backend/name_fixes.lua`. This is also the fastest way to implement a name correction - the full release process for this repository and the Millennium plugin database can take 1-2 weeks or more.
+Before submitting a game ID mapping, please test it locally by editing: `Steam/plugins/hltb-for-millennium/backend/game_ids.lua`. This is also the fastest way to add a mapping - the full release process for this repository and the Millennium plugin database can take 1-2 weeks or more.
 
 ## Credits
 

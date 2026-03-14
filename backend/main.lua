@@ -11,7 +11,7 @@ local hltb = require("hltb")
 local steam = require("steam")
 local steamhunters = require("steamhunters")
 local utils = require("hltb_utils")
-local name_fixes = require("name_fixes")
+local game_ids = require("game_ids")
 local settings = require("settings")
 local cache = require("cache")
 
@@ -55,14 +55,28 @@ local function fetch_fresh(app_id, fallback_name)
         logger:info("Fetch by ID failed: " .. (err or "unknown") .. ", falling back to name search")
     end
 
+    -- Game ID override: direct HLTB ID lookup
+    local fix = game_ids[app_id]
+    if fix then
+        logger:info("Game ID override (AppID " .. tostring(app_id) .. "): HLTB ID " .. tostring(fix))
+        local match, err = hltb.fetch_game_by_id(fix)
+        if match then
+            return {
+                searched_name = match.game_name or "",
+                game_id = match.game_id,
+                game_name = match.game_name,
+                comp_main = utils.seconds_to_hours(match.comp_main),
+                comp_plus = utils.seconds_to_hours(match.comp_plus),
+                comp_100 = utils.seconds_to_hours(match.comp_100),
+            }
+        end
+        logger:info("Game ID override fetch failed: " .. (err or "unknown") .. ", falling back to name search")
+    end
+
     -- Name-based search path
-    local fixed_name = name_fixes[app_id]
     local search_name
 
-    if fixed_name then
-        logger:info("Name fix (AppID " .. tostring(app_id) .. "): " .. fixed_name)
-        search_name = fixed_name
-    else
+    do
         local game_name, name_err = get_game_name(app_id)
         if not game_name then
             if fallback_name and fallback_name ~= "" then

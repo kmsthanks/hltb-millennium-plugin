@@ -1,19 +1,19 @@
 ---
-name: name-fix-review
-description: Reviews name_fixes.lua for duplicates, then removes them. Ensures numerical sort order.
+name: game-id-review
+description: Reviews game_ids.lua for duplicates, then removes them. Ensures numerical sort order.
 allowed-tools: Read, Edit, Bash
 ---
 
-# Name Fix Review
+# Game ID Review
 
-Cleans up `backend/name_fixes.lua` by removing duplicates and ensuring numerical sort order.
+Cleans up `backend/game_ids.lua` by removing duplicates and ensuring numerical sort order.
 
 ## Instructions
 
 ### Step 1: Run tests to check current state
 
 ```bash
-cmd //c "busted tests/name_fixes_spec.lua"
+cmd //c "busted tests/game_ids_spec.lua"
 ```
 
 Report whether tests pass or fail.
@@ -22,12 +22,11 @@ If busted is not available, see `docs/development.md` section "Running Lua Tests
 
 ### Step 2: Read and parse the file
 
-1. Read `backend/name_fixes.lua`
-2. Parse each mapping line to extract AppID and HLTB name
+1. Read `backend/game_ids.lua`
+2. Parse each mapping line to extract AppID, HLTB ID, and comment
 3. Identify issues:
    - Duplicates: Same AppID appearing more than once (keep first occurrence)
-
-Note: No-ops are not possible with AppID-based keys (the key is a number, the value is a string).
+   - Missing comments: Entries without an HLTB name comment
 
 ### Step 3: Remove duplicates (if any)
 
@@ -42,10 +41,10 @@ Check that AppIDs are in ascending numerical order. If not sorted:
 Use this bash pipeline to sort numerically while preserving exact bytes:
 
 ```bash
-head -n 6 backend/name_fixes.lua > backend/name_fixes_sorted.lua && \
-grep '^\s*\[' backend/name_fixes.lua | sort -t'[' -k2 -n >> backend/name_fixes_sorted.lua && \
-echo "}" >> backend/name_fixes_sorted.lua && \
-mv backend/name_fixes_sorted.lua backend/name_fixes.lua
+head -n 6 backend/game_ids.lua > backend/game_ids_sorted.lua && \
+grep '^\s*\[' backend/game_ids.lua | sort -t'[' -k2 -n >> backend/game_ids_sorted.lua && \
+echo "}" >> backend/game_ids_sorted.lua && \
+mv backend/game_ids_sorted.lua backend/game_ids.lua
 ```
 
 ### Step 5: Verify
@@ -53,7 +52,7 @@ mv backend/name_fixes_sorted.lua backend/name_fixes.lua
 Run tests again to confirm the file is valid:
 
 ```bash
-cmd //c "busted tests/name_fixes_spec.lua"
+cmd //c "busted tests/game_ids_spec.lua"
 ```
 
 ## Output Format
