@@ -13,14 +13,12 @@ Entry point: `frontend/index.tsx`
 
 Key responsibilities:
 - On startup, initialize ID cache via backend RPC (for public Steam profiles)
-- Detect when user views a game page (MutationObserver watching for game header images)
-- Extract Steam App ID from image URLs
+- Detect when user views a game page via Millennium's `MainWindowBrowserManager` pathname
+- MutationObserver with a route guard skips non-game pages entirely (e.g. Millennium settings)
 - Call backend `GetHltbData` to get HLTB data (backend handles cache, ID lookup, and name search internally)
 - Inject completion time display into the page
 
-Supports both Desktop and Big Picture modes. Uses CSS selectors to find game page elements.
-
-IMPORTANT: these are obfuscated class names that may break on Steam updates. But other reference implementations use a similar approach.
+Uses an obfuscated CSS class name to find the game page container. This may break on Steam updates, but other plugins use a similar approach.
 
 ## Store Page (Webkit)
 

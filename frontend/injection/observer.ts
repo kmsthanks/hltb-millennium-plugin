@@ -52,9 +52,8 @@ async function handleGamePage(doc: Document, selectors: LibrarySelectors): Promi
     return;
   }
 
-  const gamePage = await detectGamePage(doc, selectors);
+  const gamePage = detectGamePage(doc, selectors);
   if (!gamePage) {
-    // Silent return - game page not detected (common during DOM transitions)
     return;
   }
 
@@ -137,6 +136,14 @@ export function setupObserver(doc: Document, selectors: LibrarySelectors): void 
   injectStyles(doc);
 
   observer = new MutationObserver(() => {
+    const pathname = window.MainWindowBrowserManager?.m_lastLocation?.pathname;
+    if (!pathname?.match(/\/app\/\d+/)) {
+      if (currentAppId) {
+        removeExistingDisplay(doc);
+        resetState();
+      }
+      return;
+    }
     handleGamePage(doc, selectors);
   });
 
