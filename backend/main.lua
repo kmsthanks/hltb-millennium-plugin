@@ -122,7 +122,8 @@ function GetHltbData(app_id, fallback_name, force_refresh)
         if not force_refresh then
             local entry, is_stale = cache.get(app_id)
             if entry then
-                logger:info("Cache " .. (is_stale and "stale" or "fresh") .. " hit for app_id: " .. tostring(app_id))
+                local cache_name = entry.data and entry.data.game_name or entry.data and entry.data.searched_name or "unknown"
+                logger:info("Cache " .. (is_stale and "stale" or "fresh") .. " hit for app_id " .. tostring(app_id) .. ": " .. cache_name)
                 return json.encode({
                     success = true,
                     data = entry.data,
