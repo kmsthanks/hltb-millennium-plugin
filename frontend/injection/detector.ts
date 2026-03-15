@@ -1,6 +1,16 @@
 import type { GamePageInfo, UIMode } from '../types';
-import { CONTAINER_SELECTOR, BIG_PICTURE_IMAGE_SELECTORS } from '../types';
 import { log } from '../services/logger';
+
+// Shared selector for finding the game page container (used by both modes)
+const CONTAINER_SELECTOR = '.NZMJ6g2iVnFsOOp-lDmIP';
+
+// Big Picture image-based fallback selectors
+// Used when the route patch is unavailable. Fragile: custom logos can cause wrong appId.
+const BIG_PICTURE_IMAGE_SELECTORS = {
+  headerImageSelector: '._3NBxSLAZLbbbnul8KfDFjw._2dzwXkCVAuZGFC-qKgo8XB',
+  fallbackImageSelector: 'img.HNbe3eZf6H7dtJ042x1vM[src*="library_hero"]',
+  appIdPattern: /\/assets\/(\d+)/,
+};
 
 // Stored by the Big Picture route patch when it fires
 let routePatchAppId: number | null = null;
@@ -75,7 +85,7 @@ function detectBigPicture(doc: Document): GamePageInfo | null {
     const container = doc.querySelector(CONTAINER_SELECTOR) as HTMLElement | null;
     if (container) {
       log('Detected via route patch:', routePatchAppId);
-      return { appId: routePatchAppId, container, gameName: routePatchGameName || extractGameName(routePatchAppId) };
+      return { appId: routePatchAppId, container, gameName: routePatchGameName ?? extractGameName(routePatchAppId) };
     }
   }
 

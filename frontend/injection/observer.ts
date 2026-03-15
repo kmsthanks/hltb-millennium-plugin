@@ -14,6 +14,7 @@ let currentAppId: number | null = null;
 let currentData: HltbGameResult | null = null;
 let processingAppId: number | null = null;
 let currentDoc: Document | null = null;
+let currentMode: UIMode | null = null;
 let observer: MutationObserver | null = null;
 let routePatchCleanup: (() => void) | null = null;
 
@@ -22,24 +23,21 @@ export function resetState(): void {
   currentData = null;
   processingAppId = null;
   currentDoc = null;
+  currentMode = null;
   clearRoutePatchData();
 }
 
 export function refreshDisplay(): void {
-  if (!currentDoc || !currentAppId || !currentData) return;
+  if (!currentDoc || !currentAppId || !currentData || !currentMode) return;
 
   const existing = getExistingDisplay(currentDoc);
 
   // If display doesn't exist but should, re-trigger detection
   if (!existing) {
-    const doc = currentDoc;
     currentAppId = null;
     currentData = null;
     processingAppId = null;
-    // Trigger MutationObserver to re-detect and re-inject
-    const marker = doc.createComment('hltb-refresh');
-    doc.body.appendChild(marker);
-    marker.remove();
+    handleGamePage(currentDoc, currentMode);
     return;
   }
 
@@ -100,7 +98,7 @@ async function handleGamePage(doc: Document, mode: UIMode): Promise<void> {
     };
 
     // If game changed during fetch, don't update display
-    if (currentAppId !== null && currentAppId !== appId) {
+    if (currentAppId !== appId) {
       log('Game changed during fetch, skipping display update');
       return;
     }
@@ -111,12 +109,14 @@ async function handleGamePage(doc: Document, mode: UIMode): Promise<void> {
 
     // Handle background refresh for stale data
     if (result.refreshPromise) {
-      result.refreshPromise.then((newData) => {
-        if (newData && currentAppId === appId) {
-          currentData = newData;
-          updateDisplay(newData);
-        }
-      });
+      result.refreshPromise
+        .then((newData) => {
+          if (newData && currentAppId === appId) {
+            currentData = newData;
+            updateDisplay(newData);
+          }
+        })
+        .catch((e) => log('Background refresh failed:', e));
     }
   } catch (e) {
     log('Error fetching HLTB data:', e);
@@ -171,6 +171,7 @@ export function setupObserver(doc: Document, mode: UIMode): void {
     routePatchCleanup = null;
   }
 
+  currentMode = mode;
   log('Setting up for', mode, 'mode');
   injectStyles(doc);
 

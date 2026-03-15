@@ -1,6 +1,5 @@
 import { callable } from '@steambrew/client';
 import { log } from '../services/logger';
-import { CONTAINER_SELECTOR, BIG_PICTURE_IMAGE_SELECTORS } from '../types';
 
 const ClearCacheRpc = callable<[], string>('ClearCache');
 const GetCacheStatsRpc = callable<[], string>('GetCacheStats');
@@ -40,7 +39,7 @@ function logDOMStructure(doc: Document, selector?: string): void {
 export function exposeDebugTools(doc: Document): void {
   const debugObj = {
     logDOM: (selector?: string) => logDOMStructure(doc, selector),
-    getSelectors: () => ({ CONTAINER_SELECTOR, ...BIG_PICTURE_IMAGE_SELECTORS }),
+    getSelectors: () => 'Selectors are internal to detector.ts — inspect source directly',
     findImages: () => {
       const images = doc.querySelectorAll('img');
       images.forEach((img, i) => {

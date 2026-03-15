@@ -15,17 +15,6 @@ export interface FetchResult {
   refreshPromise: Promise<HltbGameResult | null> | null;
 }
 
-// Shared selector for finding the game page container (used by both modes)
-export const CONTAINER_SELECTOR = '.NZMJ6g2iVnFsOOp-lDmIP';
-
-// Big Picture image-based fallback selectors
-// Used when the route patch is unavailable. Fragile: custom logos can cause wrong appId.
-export const BIG_PICTURE_IMAGE_SELECTORS = {
-  headerImageSelector: '._3NBxSLAZLbbbnul8KfDFjw._2dzwXkCVAuZGFC-qKgo8XB',
-  fallbackImageSelector: 'img.HNbe3eZf6H7dtJ042x1vM[src*="library_hero"]',
-  appIdPattern: /\/assets\/(\d+)/,
-};
-
 // UI mode determines which detection strategies to use
 export type UIMode = 'desktop' | 'bigpicture';
 
