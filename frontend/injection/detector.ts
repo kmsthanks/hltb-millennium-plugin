@@ -1,4 +1,5 @@
-import type { LibrarySelectors, GamePageInfo, UIMode } from '../types';
+import type { GamePageInfo, UIMode } from '../types';
+import { CONTAINER_SELECTOR, BIG_PICTURE_IMAGE_SELECTORS } from '../types';
 import { log } from '../services/logger';
 
 // Stored by the Big Picture route patch when it fires
@@ -24,10 +25,9 @@ function extractGameName(appId: number): string | undefined {
   }
 }
 
-function tryExtractGamePage(
+function tryExtractFromImage(
   doc: Document,
   imageSelector: string,
-  containerSelector: string,
   appIdPattern: RegExp
 ): GamePageInfo | null {
   const img = doc.querySelector(imageSelector) as HTMLImageElement | null;
@@ -38,66 +38,41 @@ function tryExtractGamePage(
   if (!match) return null;
 
   const appId = parseInt(match[1], 10);
-  const container = img.closest(containerSelector) as HTMLElement | null;
+  const container = img.closest(CONTAINER_SELECTOR) as HTMLElement | null;
   if (!container) return null;
 
   return { appId, container };
 }
 
-export async function detectGamePage(
-  doc: Document,
-  selectors: LibrarySelectors,
-  mode: UIMode
-): Promise<GamePageInfo | null> {
+export function detectGamePage(doc: Document, mode: UIMode): GamePageInfo | null {
   if (mode === 'desktop') {
-    return detectDesktop(doc, selectors);
+    return detectDesktop(doc);
   }
-  return detectBigPicture(doc, selectors);
+  return detectBigPicture(doc);
 }
 
 // Desktop: pathname is reliable and updates on navigation.
-// GetActiveAppID is a fallback (works in desktop, errors in Big Picture).
-async function detectDesktop(doc: Document, selectors: LibrarySelectors): Promise<GamePageInfo | null> {
-  // Strategy 1: pathname from MainWindowBrowserManager
-  if (window.MainWindowBrowserManager?.m_lastLocation?.pathname) {
-    const match = window.MainWindowBrowserManager.m_lastLocation.pathname.match(/\/app\/(\d+)/);
-    if (match) {
-      const appId = parseInt(match[1], 10);
-      const container = doc.querySelector(selectors.containerSelector) as HTMLElement | null;
-      if (container) {
-        log('Detected via pathname:', appId);
-        return { appId, container, gameName: extractGameName(appId) };
-      }
-    }
-  }
+function detectDesktop(doc: Document): GamePageInfo | null {
+  if (!window.MainWindowBrowserManager?.m_lastLocation?.pathname) return null;
 
-  // Strategy 2: Steam Client API
-  if (window.SteamClient?.Apps?.GetActiveAppID) {
-    try {
-      // @ts-ignore - GetActiveAppID might return -1 or 0 if invalid
-      const appId = await window.SteamClient.Apps.GetActiveAppID();
-      if (appId > 0) {
-        const container = doc.querySelector(selectors.containerSelector) as HTMLElement | null;
-        if (container) {
-          log('Detected via GetActiveAppID:', appId);
-          return { appId, container, gameName: extractGameName(appId) };
-        }
-      }
-    } catch {
-      // GetActiveAppID not available
-    }
-  }
+  const match = window.MainWindowBrowserManager.m_lastLocation.pathname.match(/\/app\/(\d+)/);
+  if (!match) return null;
 
-  return null;
+  const appId = parseInt(match[1], 10);
+  const container = doc.querySelector(CONTAINER_SELECTOR) as HTMLElement | null;
+  if (!container) return null;
+
+  log('Detected via pathname:', appId);
+  return { appId, container, gameName: extractGameName(appId) };
 }
 
 // Big Picture: pathname is stale and GetActiveAppID errors.
 // Route patch (set up in observer.ts) provides appid from React component tree.
 // Image-based detection is a fallback. Custom logos can cause wrong appId.
-function detectBigPicture(doc: Document, selectors: LibrarySelectors): GamePageInfo | null {
+function detectBigPicture(doc: Document): GamePageInfo | null {
   // Strategy 1: appId from route patch (set by routerHook.addPatch callback)
   if (routePatchAppId) {
-    const container = doc.querySelector(selectors.containerSelector) as HTMLElement | null;
+    const container = doc.querySelector(CONTAINER_SELECTOR) as HTMLElement | null;
     if (container) {
       log('Detected via route patch:', routePatchAppId);
       return { appId: routePatchAppId, container, gameName: routePatchGameName || extractGameName(routePatchAppId) };
@@ -106,9 +81,10 @@ function detectBigPicture(doc: Document, selectors: LibrarySelectors): GamePageI
 
   // Strategy 2: extract appId from header image URL (/assets/{appId}/...)
   // Fragile: custom logos can cause wrong appId.
+  const { headerImageSelector, fallbackImageSelector, appIdPattern } = BIG_PICTURE_IMAGE_SELECTORS;
   const result =
-    tryExtractGamePage(doc, selectors.headerImageSelector, selectors.containerSelector, selectors.appIdPattern) ||
-    tryExtractGamePage(doc, selectors.fallbackImageSelector, selectors.containerSelector, selectors.appIdPattern);
+    tryExtractFromImage(doc, headerImageSelector, appIdPattern) ||
+    tryExtractFromImage(doc, fallbackImageSelector, appIdPattern);
   if (result) {
     log('Detected via image:', result.appId);
     result.gameName = extractGameName(result.appId);

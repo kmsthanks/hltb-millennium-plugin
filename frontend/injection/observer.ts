@@ -1,4 +1,4 @@
-import type { HltbGameResult, LibrarySelectors, UIMode } from '../types';
+import type { HltbGameResult, UIMode } from '../types';
 import { log } from '../services/logger';
 import { fetchHltbData } from '../services/hltbApi';
 import { getSettings } from '../services/settings';
@@ -47,14 +47,14 @@ export function refreshDisplay(): void {
   existing.replaceWith(createDisplay(currentDoc, settings, currentData));
 }
 
-async function handleGamePage(doc: Document, selectors: LibrarySelectors, mode: UIMode): Promise<void> {
+async function handleGamePage(doc: Document, mode: UIMode): Promise<void> {
   const settings = getSettings();
   if (!settings.showInLibrary) {
     removeExistingDisplay(doc);
     return;
   }
 
-  const gamePage = await detectGamePage(doc, selectors, mode);
+  const gamePage = detectGamePage(doc, mode);
   if (!gamePage) {
     return;
   }
@@ -160,7 +160,7 @@ function setupRoutePatch(): void {
   log('Route patch set up for Big Picture mode');
 }
 
-export function setupObserver(doc: Document, selectors: LibrarySelectors, mode: UIMode): void {
+export function setupObserver(doc: Document, mode: UIMode): void {
   // Clean up existing observer and route patch
   if (observer) {
     observer.disconnect();
@@ -179,7 +179,7 @@ export function setupObserver(doc: Document, selectors: LibrarySelectors, mode: 
   }
 
   observer = new MutationObserver(() => {
-    handleGamePage(doc, selectors, mode);
+    handleGamePage(doc, mode);
   });
 
   observer.observe(doc.body, {
@@ -190,7 +190,7 @@ export function setupObserver(doc: Document, selectors: LibrarySelectors, mode: 
   log('MutationObserver set up');
 
   // Initial check for already-rendered game page
-  handleGamePage(doc, selectors, mode);
+  handleGamePage(doc, mode);
 }
 
 export function disconnectObserver(): void {

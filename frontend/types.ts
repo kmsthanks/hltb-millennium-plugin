@@ -15,18 +15,14 @@ export interface FetchResult {
   refreshPromise: Promise<HltbGameResult | null> | null;
 }
 
-// Library selectors for finding game pages
-export interface LibrarySelectors {
-  headerImageSelector: string;
-  fallbackImageSelector: string;
-  containerSelector: string;
-  appIdPattern: RegExp;
-}
+// Shared selector for finding the game page container (used by both modes)
+export const CONTAINER_SELECTOR = '.NZMJ6g2iVnFsOOp-lDmIP';
 
-export const LIBRARY_SELECTORS: LibrarySelectors = {
+// Big Picture image-based fallback selectors
+// Used when the route patch is unavailable. Fragile: custom logos can cause wrong appId.
+export const BIG_PICTURE_IMAGE_SELECTORS = {
   headerImageSelector: '._3NBxSLAZLbbbnul8KfDFjw._2dzwXkCVAuZGFC-qKgo8XB',
   fallbackImageSelector: 'img.HNbe3eZf6H7dtJ042x1vM[src*="library_hero"]',
-  containerSelector: '.NZMJ6g2iVnFsOOp-lDmIP',
   appIdPattern: /\/assets\/(\d+)/,
 };
 
@@ -46,11 +42,6 @@ declare global {
     MainWindowBrowserManager?: {
       m_lastLocation: {
         pathname: string;
-      };
-    };
-    SteamClient?: {
-      Apps?: {
-        GetActiveAppID?: () => Promise<number>;
       };
     };
   }
