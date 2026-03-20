@@ -179,6 +179,9 @@ export function setupObserver(doc: Document, mode: UIMode): void {
     routePatchCleanup = null;
   }
 
+  // Always reset state to prevent stale data from a previous mode/session
+  // (e.g. desktop appId leaking into Big Picture)
+  resetState();
   currentMode = mode;
   log('Setting up for', mode, 'mode');
   injectStyles(doc);

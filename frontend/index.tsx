@@ -14,6 +14,7 @@ const GetCacheStats = callable<[], string>('GetCacheStats');
 const ClearCacheRpc = callable<[], string>('ClearCache');
 
 let currentDocument: Document | undefined;
+let currentUIMode: UIMode | undefined;
 let initializedForUserId: string | null = null;
 
 const STORE_POSITION_OPTIONS = [
@@ -269,20 +270,24 @@ export default definePlugin(() => {
     const doc = context.m_popup?.document;
     if (!doc?.body) return;
 
-    log('Window created:', context.m_strName);
+    const mode: UIMode = context.m_strName.includes('BPM') ? 'bigpicture' : 'desktop';
+    log('Window created:', context.m_strName, '(' + mode + ')');
 
-    // Clean up old document if switching modes
-    if (currentDocument && currentDocument !== doc) {
-      log('Mode switch detected, cleaning up old document');
-      removeDebugTools(currentDocument);
-      removeStyles(currentDocument);
-      removeExistingDisplay(currentDocument);
+    // Clean up old document/mode before switching
+    const documentChanged = currentDocument && currentDocument !== doc;
+    const modeChanged = currentUIMode !== undefined && currentUIMode !== mode;
+    if (documentChanged || modeChanged) {
+      log('Mode/document switch detected, cleaning up');
+      if (currentDocument) {
+        removeDebugTools(currentDocument);
+        removeStyles(currentDocument);
+        removeExistingDisplay(currentDocument);
+      }
       disconnectObserver();
-      resetState();
     }
 
     currentDocument = doc;
-    const mode: UIMode = context.m_strName.includes('BPM') ? 'bigpicture' : 'desktop';
+    currentUIMode = mode;
     setupObserver(doc, mode);
     exposeDebugTools(doc);
 
