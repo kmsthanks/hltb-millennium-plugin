@@ -35,37 +35,18 @@ const PROFILES = [
 
 const HLTB_API_URL = 'https://howlongtobeat.com/api/steam/getSteamImportData';
 
-// Match threshold: 20% of name length, minimum 5 edits
-// e.g., 30-char name allows 6 edits, 10-char name allows 5 edits
-const LEVENSHTEIN_THRESHOLD = 0.2;
-
 /**
- * Simulate HLTB's search matching behavior.
+ * Would HLTB's search find the target game given this search query?
  *
- * HLTB uses greedy exact/substring matching, not fuzzy matching.
- * "Cyberpunk" finds "Cyberpunk 2077" but "Cyberpunk1" does not.
- *
- * Returns true if the search term would likely find the target on HLTB.
+ * HLTB uses case-insensitive substring matching with colons stripped.
+ * Whitespace, dashes, and & are preserved as-is.
+ * "Suikoden I" finds "Suikoden I & II HD Remaster" but "Suikoden I&II" does not.
+ * "Worms Reloaded" finds "Worms: Reloaded" (colon stripped).
  */
-function wouldHLTBMatch(searchTerm, targetName) {
-  // Normalize: lowercase, collapse whitespace
-  const normalize = (s) => s.toLowerCase().replace(/\s+/g, ' ').trim();
-
-  const search = normalize(searchTerm);
-  const target = normalize(targetName);
-
-  // Direct substring match
-  if (target.includes(search)) {
-    return true;
-  }
-
-  // Word-based match: all words in search appear in target
-  const searchWords = search.split(' ').filter(w => w.length > 0);
-  const targetWords = target.split(' ');
-
-  return searchWords.every(sw =>
-    targetWords.some(tw => tw.includes(sw) || sw.includes(tw))
-  );
+function wouldHLTBFind(searchTerm, targetName) {
+  const search = searchTerm.toLowerCase().replace(/:/g, '');
+  const target = targetName.toLowerCase().replace(/:/g, '');
+  return target.includes(search);
 }
 
 /**
@@ -102,12 +83,6 @@ function processGamesBatch(luaCmd, games) {
     console.error('Lua batch processing failed:', err.message);
     process.exit(1);
   }
-}
-
-function isWithinThreshold(distance, name1, name2) {
-  const maxLen = Math.max(name1.length, name2.length);
-  const threshold = Math.max(5, Math.floor(maxLen * LEVENSHTEIN_THRESHOLD));
-  return distance <= threshold;
 }
 
 /**
@@ -205,10 +180,15 @@ async function main() {
 
   console.log(`\nTotal unique games: ${allGames.size}\n`);
 
+  // Known bad mappings in HLTB's API (wrong steam_id -> hltb_id)
+  const IGNORED_STEAM_IDS = new Set([
+    12364, // Big Mutha Truckers incorrectly mapped to FlatOut: Ultimate Carnage
+  ]);
+
   // Filter games that have HLTB data and no existing ID
   const gamesToProcess = [];
   for (const [steamId, game] of allGames) {
-    if (game.hltb_id && game.hltb_id !== 0 && !existingIds.has(steamId)) {
+    if (game.hltb_id && game.hltb_id !== 0 && !existingIds.has(steamId) && !IGNORED_STEAM_IDS.has(steamId)) {
       gamesToProcess.push({
         steam_id: steamId,
         steam_name: game.steam_name,
@@ -269,12 +249,14 @@ async function main() {
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
       const { appId, entry, game } = redundancyMeta[i];
-      const sanitizedOk = (result.dist_sanitized === 0 || isWithinThreshold(result.dist_sanitized, result.sanitized, game.hltb_name))
-        && wouldHLTBMatch(result.sanitized, game.hltb_name);
-      const simplifiedOk = (result.dist_simplified === 0 || isWithinThreshold(result.dist_simplified, result.simplified, game.hltb_name))
-        && wouldHLTBMatch(result.simplified, game.hltb_name);
+      // Only flag as redundant if the sanitized name is an exact match for the
+      // HLTB name. Substring matches aren't safe because HLTB may return a
+      // different game first (e.g. "GRID" matches "Race Driver: Grid" but
+      // HLTB returns "GRID (2019)" as the top result).
+      const sanitizedExact = result.sanitized.toLowerCase() === game.hltb_name.toLowerCase();
+      const simplifiedExact = result.simplified.toLowerCase() === game.hltb_name.toLowerCase();
 
-      if (sanitizedOk || simplifiedOk) {
+      if (sanitizedExact || simplifiedExact) {
         validation.redundant.push({
           appId,
           entry,
@@ -318,24 +300,14 @@ async function main() {
   console.log('PHASE 2: Games needing new game_ids');
   console.log('='.repeat(50) + '\n');
 
-  // Find games where neither sanitize nor simplify matches
-  // Uses both Levenshtein distance AND HLTB's substring matching simulation
+  // Find games where neither sanitized nor simplified name is a substring of the HLTB name
   const needsId = [];
   for (let i = 0; i < gamesToProcess.length; i++) {
     const game = gamesToProcess[i];
     const result = processed[i];
 
-    // Levenshtein check (fuzzy similarity)
-    const sanitizedLevenshtein = result.dist_sanitized === 0 || isWithinThreshold(result.dist_sanitized, result.sanitized, game.hltb_name);
-    const simplifiedLevenshtein = result.dist_simplified === 0 || isWithinThreshold(result.dist_simplified, result.simplified, game.hltb_name);
-
-    // HLTB substring matching simulation
-    const sanitizedSubstring = wouldHLTBMatch(result.sanitized, game.hltb_name);
-    const simplifiedSubstring = wouldHLTBMatch(result.simplified, game.hltb_name);
-
-    // Need entry if BOTH checks fail for BOTH sanitized and simplified
-    const sanitizedOk = sanitizedLevenshtein && sanitizedSubstring;
-    const simplifiedOk = simplifiedLevenshtein && simplifiedSubstring;
+    const sanitizedOk = wouldHLTBFind(result.sanitized, game.hltb_name);
+    const simplifiedOk = wouldHLTBFind(result.simplified, game.hltb_name);
 
     if (!sanitizedOk && !simplifiedOk) {
       needsId.push({
@@ -345,10 +317,6 @@ async function main() {
         hltbId: allGames.get(game.steam_id)?.hltb_id,
         sanitized: result.sanitized,
         simplified: result.simplified,
-        distSanitized: result.dist_sanitized,
-        distSimplified: result.dist_simplified,
-        sanitizedSubstringOk: sanitizedSubstring,
-        simplifiedSubstringOk: simplifiedSubstring,
       });
     }
   }
@@ -374,9 +342,9 @@ async function main() {
     for (const entry of needsId) {
       console.log(`AppID ${entry.steamId}:`);
       console.log(`  Steam:      "${entry.steamName}"`);
-      console.log(`  Sanitized:  "${entry.sanitized}" (dist: ${entry.distSanitized}, substr: ${entry.sanitizedSubstringOk ? 'yes' : 'no'})`);
+      console.log(`  Sanitized:  "${entry.sanitized}"`);
       if (entry.simplified !== entry.sanitized) {
-        console.log(`  Simplified: "${entry.simplified}" (dist: ${entry.distSimplified}, substr: ${entry.simplifiedSubstringOk ? 'yes' : 'no'})`);
+        console.log(`  Simplified: "${entry.simplified}"`);
       }
       console.log(`  HLTB:       "${entry.hltbName}" (ID: ${entry.hltbId})`);
       console.log();
