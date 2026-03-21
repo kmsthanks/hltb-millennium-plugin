@@ -39,7 +39,7 @@ If no version is provided, suggests a patch increment.
    ```bash
    git log v{GITHUB_VERSION}..HEAD --oneline --no-merges
    ```
-6. Generate release notes: one bullet per commit, excluding:
+6. Generate human-readable release notes. Read the actual diffs and changes (not just commit messages) to write clear, user-facing descriptions grouped by category (e.g., "Bug fixes", "Improvements"). Exclude:
    - Version bump commits ("Release v...")
    - Trivial commits (typos, formatting)
    - Skill/agent updates (.claude directory changes)
@@ -91,10 +91,11 @@ Display this exact format and ask for confirmation:
 7. Push to origin/main
 8. Trigger GitHub Action "Create Release"
 9. Wait for release workflow to complete
-10. Update submodule in ../PluginDatabase to latest commit
-11. Commit in PluginDatabase: "Update HLTB for Steam to v{NEW_VERSION}"
-12. Push PluginDatabase to origin
-13. Create PR to SteamClientHomebrew/PluginDatabase
+10. Update GitHub release with human-readable notes
+11. Update submodule in ../PluginDatabase to latest commit
+12. Commit in PluginDatabase: "Update HLTB for Steam to v{NEW_VERSION}"
+13. Push PluginDatabase to origin
+14. Create PR to SteamClientHomebrew/PluginDatabase
 
 Proceed with release?
 ```
@@ -146,6 +147,16 @@ gh workflow run release.yml -f version={VERSION}
 gh run list --workflow=release.yml --limit 1 --json status,conclusion,databaseId
 ```
 Poll every 10 seconds until status is "completed". Abort if conclusion is not "success".
+
+#### Step 9.5: Update GitHub release notes
+The workflow's `generate_release_notes: true` only produces auto-generated commit links. Replace them with the human-readable release notes generated in Phase 1:
+```bash
+gh release edit v{VERSION} --notes "{RELEASE_NOTES}"
+```
+The notes should include category headers (e.g., "### Bug fixes", "### Improvements") and end with a full changelog link:
+```
+**Full Changelog**: https://github.com/{OWNER}/{REPO}/compare/v{PREV_VERSION}...v{VERSION}
+```
 
 #### Step 10: Update submodule
 ```bash
