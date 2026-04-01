@@ -1,0 +1,154 @@
+name: HLTB API Monitor
+
+on:
+  schedule:
+    - cron: '0 12 * * *'  # Daily at noon UTC
+  workflow_dispatch:
+
+jobs:
+  check-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check init endpoint
+        id: init
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            -H "Referer: https://howlongtobeat.com/" \
+            "https://howlongtobeat.com/api/find/init?t=$(date +%s%3N)")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "status=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+          echo "body=$BODY" >> "$GITHUB_OUTPUT"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Init endpoint returned HTTP $HTTP_CODE"
+            echo "init_ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          TOKEN=$(echo "$BODY" | jq -r '.token // empty')
+          HP_KEY=$(echo "$BODY" | jq -r '.hpKey // empty')
+          HP_VAL=$(echo "$BODY" | jq -r '.hpVal // empty')
+
+          if [ -z "$TOKEN" ] || [ -z "$HP_KEY" ] || [ -z "$HP_VAL" ]; then
+            echo "::error::Init response missing expected fields. Body: $BODY"
+            echo "init_ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "init_ok=true" >> "$GITHUB_OUTPUT"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+          echo "hp_key=$HP_KEY" >> "$GITHUB_OUTPUT"
+          echo "hp_val=$HP_VAL" >> "$GITHUB_OUTPUT"
+
+      - name: Check search endpoint
+        id: search
+        if: steps.init.outputs.init_ok == 'true'
+        run: |
+          TOKEN="${{ steps.init.outputs.token }}"
+          HP_KEY="${{ steps.init.outputs.hp_key }}"
+          HP_VAL="${{ steps.init.outputs.hp_val }}"
+
+          PAYLOAD=$(jq -n \
+            --arg key "$HP_KEY" \
+            --arg val "$HP_VAL" \
+            '{
+              searchType: "games",
+              searchTerms: ["Dark", "Souls"],
+              searchPage: 1,
+              size: 5,
+              searchOptions: {
+                games: {
+                  userId: 0,
+                  platform: "",
+                  sortCategory: "popular",
+                  rangeCategory: "main",
+                  rangeTime: { min: 0, max: 0 },
+                  gameplay: { perspective: "", flow: "", genre: "", difficulty: "" },
+                  rangeYear: { max: "", min: "" },
+                  modifier: ""
+                },
+                users: { sortCategory: "postcount" },
+                lists: { sortCategory: "follows" },
+                filter: "",
+                sort: 0,
+                randomizer: 0
+              },
+              useCache: true
+            } + { ($key): $val }')
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            -H "Origin: https://howlongtobeat.com" \
+            -H "Referer: https://howlongtobeat.com/" \
+            -H "x-auth-token: $TOKEN" \
+            -H "x-hp-key: $HP_KEY" \
+            -H "x-hp-val: $HP_VAL" \
+            "https://howlongtobeat.com/api/find" \
+            -d "$PAYLOAD")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "status=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Search endpoint returned HTTP $HTTP_CODE"
+            echo "search_ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          HAS_DATA=$(echo "$BODY" | jq -r '.data | length > 0')
+          if [ "$HAS_DATA" != "true" ]; then
+            echo "::error::Search returned no results for 'Dark Souls'"
+            echo "search_ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "search_ok=true" >> "$GITHUB_OUTPUT"
+
+      - name: Create issue if checks failed
+        if: steps.init.outputs.init_ok != 'true' || steps.search.outputs.search_ok != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'HLTB API check failed';
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'hltb-api-monitor',
+              per_page: 1
+            });
+
+            if (issues.length > 0) {
+              console.log('Open issue already exists: #' + issues[0].number);
+              return;
+            }
+
+            const initOk = '${{ steps.init.outputs.init_ok }}' === 'true';
+            const searchOk = '${{ steps.search.outputs.search_ok }}' === 'true';
+            const initStatus = '${{ steps.init.outputs.status }}';
+            const searchStatus = '${{ steps.search.outputs.status }}';
+
+            let body = 'The daily HLTB API monitor detected a problem.\n\n';
+            if (!initOk) {
+              body += `- Init endpoint (\`/api/find/init\`): HTTP ${initStatus}\n`;
+            }
+            if (!searchOk) {
+              body += `- Search endpoint (\`/api/find\`): HTTP ${searchStatus}\n`;
+            }
+            body += `\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['hltb-api-monitor']
+            });

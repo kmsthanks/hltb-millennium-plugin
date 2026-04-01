@@ -19,11 +19,11 @@ M.BASE_URL = "https://howlongtobeat.com/"
 M.REFERER_HEADER = M.BASE_URL
 M.TIMEOUT = 60                        -- HTTP request timeout in seconds
 M.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-M.SEARCH_URL_FALLBACK = M.BASE_URL .. "api/finder"  -- Used when dynamic endpoint discovery fails
+M.SEARCH_URL_FALLBACK = M.BASE_URL .. "api/find"  -- Used when dynamic endpoint discovery fails
 
 -- Known non-search API endpoints to skip
 local SKIP_ENDPOINTS = {
-    find = true,
+    finder = true,
     error = true,
     user = true,
     logout = true

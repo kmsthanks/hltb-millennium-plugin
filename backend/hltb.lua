@@ -20,7 +20,7 @@ local M = {}
 -- Re-export public API
 M.search = api.search
 M.search_best_match = match.search_best_match
-M.get_auth_token = api.get_auth_token
+M.get_auth = api.get_auth
 M.fetch_steam_import = api.fetch_steam_import
 M.fetch_game_by_id = api.fetch_game_by_id
 

@@ -18,22 +18,21 @@ M.SEARCH_SIZE = 20   -- Number of results to request per search
 -- Exposed for testing; defaults to real http module
 M._http = http
 
--- Auth token cache
-local cached_token = nil
-local token_expires_at = 0
+-- Auth struct cache: { token, key, value }
+local cached_auth = nil
+local auth_expires_at = 0
 
--- Get auth token
-function M.get_auth_token(force_refresh)
+-- Get auth struct (token + key/value pair)
+function M.get_auth(force_refresh)
     local now = os.time()
 
-    if not force_refresh and cached_token and now < token_expires_at then
-        return cached_token, nil
+    if not force_refresh and cached_auth and now < auth_expires_at then
+        return cached_auth, nil
     end
-
-    logger:info("Fetching auth token...")
 
     local timestamp_ms = math.floor(now * 1000)
     local url = endpoints.get_init_url() .. "?t=" .. timestamp_ms
+    logger:info("Fetching auth token...")
 
     local response, err = http.get(url, {
         headers = {
@@ -60,16 +59,20 @@ function M.get_auth_token(force_refresh)
         return nil, "No token in response"
     end
 
-    cached_token = data.token
-    token_expires_at = now + M.TOKEN_TTL
-    logger:info("Got auth token")
+    cached_auth = {
+        token = data.token,
+        key = data.hpKey,
+        value = data.hpVal
+    }
+    auth_expires_at = now + M.TOKEN_TTL
+    logger:info("Got auth token" .. (data.hpKey and " with key/value" or ""))
 
-    return data.token, nil
+    return cached_auth, nil
 end
 
 -- Build search payload matching HLTB's expected API format.
 -- The searchOptions structure mirrors what the HLTB website sends.
-local function get_search_request_data(game_name, modifier, page)
+local function get_search_request_data(game_name, modifier, page, auth)
     modifier = modifier or ""
     page = page or 1
 
@@ -108,11 +111,16 @@ local function get_search_request_data(game_name, modifier, page)
         useCache = true
     }
 
+    -- Include auth key/value in the payload body
+    if auth and auth.key and auth.value then
+        payload[tostring(auth.key)] = auth.value
+    end
+
     return json.encode(payload)
 end
 
 -- Build search headers
-local function get_search_request_headers(auth_token)
+local function get_search_request_headers(auth)
     local headers = {
         ["Content-Type"] = "application/json",
         ["Origin"] = "https://howlongtobeat.com",
@@ -121,8 +129,14 @@ local function get_search_request_headers(auth_token)
         ["User-Agent"] = endpoints.USER_AGENT
     }
 
-    if auth_token then
-        headers["x-auth-token"] = auth_token
+    if auth then
+        headers["x-auth-token"] = auth.token
+        if auth.key then
+            headers["x-hp-key"] = tostring(auth.key)
+        end
+        if auth.value then
+            headers["x-hp-val"] = tostring(auth.value)
+        end
     end
 
     return headers
@@ -134,15 +148,15 @@ function M.search(query, options)
     local page = options.page or 1
     local modifier = options.modifier or ""
 
-    local auth_token = M.get_auth_token()
-    if not auth_token then
-        logger:info("Failed to get auth token")
+    local auth, auth_err = M.get_auth()
+    if not auth then
+        logger:info("Failed to get auth: " .. (auth_err or "unknown"))
         return nil
     end
 
-    local headers = get_search_request_headers(auth_token)
+    local headers = get_search_request_headers(auth)
     local search_url = endpoints.get_search_url()
-    local payload = get_search_request_data(query, modifier, page)
+    local payload = get_search_request_data(query, modifier, page, auth)
 
     local response, err = http.request(search_url, {
         method = "POST",
@@ -154,6 +168,28 @@ function M.search(query, options)
     if not response then
         logger:info("Search request failed: " .. (err or "unknown"))
         return nil
+    end
+
+    -- Retry once on 403 with a fresh token (HLTB expires tokens server-side)
+    if response.status == 403 then
+        logger:info("Search returned 403, refreshing auth and retrying...")
+        auth, auth_err = M.get_auth(true)
+        if not auth then
+            logger:info("Failed to refresh auth: " .. (auth_err or "unknown"))
+            return nil
+        end
+        headers = get_search_request_headers(auth)
+        payload = get_search_request_data(query, modifier, page, auth)
+        response, err = http.request(search_url, {
+            method = "POST",
+            headers = headers,
+            data = payload,
+            timeout = endpoints.TIMEOUT
+        })
+        if not response then
+            logger:info("Search retry failed: " .. (err or "unknown"))
+            return nil
+        end
     end
 
     if response.status ~= 200 then
@@ -399,10 +435,10 @@ function M.fetch_game_by_id(game_id)
     }, nil
 end
 
--- Clear cached auth token
+-- Clear cached auth
 function M.clear_cache()
-    cached_token = nil
-    token_expires_at = 0
+    cached_auth = nil
+    auth_expires_at = 0
 end
 
 return M
