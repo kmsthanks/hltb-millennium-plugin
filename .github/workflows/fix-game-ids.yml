@@ -1,0 +1,49 @@
+name: Fix game_ids.lua
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['backend/game_ids.lua']
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sort game_ids.lua
+        run: |
+          head -n 6 backend/game_ids.lua > backend/game_ids_sorted.lua
+          grep '^\s*\[' backend/game_ids.lua | sort -t'[' -k2 -n >> backend/game_ids_sorted.lua
+          echo "}" >> backend/game_ids_sorted.lua
+          mv backend/game_ids_sorted.lua backend/game_ids.lua
+
+      - name: Remove blank lines between entries
+        run: |
+          sed -i '/^\s*$/{ N; /\n\s*\[/{ s/\n/\n/; P; D; }; }' backend/game_ids.lua
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet backend/game_ids.lua; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push fix
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add backend/game_ids.lua
+          git commit -m "Auto-fix: sort game_ids.lua"
+          git push
