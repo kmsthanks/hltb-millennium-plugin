@@ -150,6 +150,7 @@ return {
     [351870] = 26977, -- Cultures: 8th Wonder of the World
     [354830] = 24484, -- Wolfenstein: The Old Blood
     [365590] = 20073, -- Tom Clancy's The Division
+    [374320] = 26803, -- Dark Souls III
     [374900] = 33609, -- Agatha Christie: The ABC Murders
     [383120] = 29056, -- Empyrion: Galactic Survival
     [393080] = 39302, -- Call of Duty: Modern Warfare - Remastered
@@ -225,6 +226,7 @@ return {
     [1057810] = 57504, -- Wolfenstein: Youngblood
     [1063730] = 67832, -- New World
     [1086850] = 69410, -- Garden of the Sea
+    [1091500] = 2127, -- Cyberpunk 2077
     [1096570] = 72846, -- Song of Horror: Complete Edition
     [1119730] = 89349, -- Ranch Simulator
     [1133760] = 1704, -- Chrono Cross
