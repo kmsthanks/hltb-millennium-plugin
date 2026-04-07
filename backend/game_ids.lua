@@ -59,6 +59,7 @@ return {
     [65540] = 4024, -- Gothic
     [92300] = 152, -- A.R.E.S.: Extinction Agenda
     [98400] = 4301, -- Hard Reset: Extended Edition
+    [374320] = 26803, -- Dark Souls III
     [105450] = 15114, -- Age of Empires III: Complete Collection
     [107300] = 1317, -- Breath of Death VII: The Beginning
     [113020] = 6131, -- Monaco: What's Yours is Mine
@@ -118,6 +119,7 @@ return {
     [261510] = 15873, -- Tesla Effect: A Tex Murphy Adventure
     [262940] = 24028, -- Broken Sword 5: The Serpent's Curse
     [264240] = 13814, -- Consortium
+    
     [265550] = 14343, -- Dead Rising 3
     [265870] = 19072, -- Alpha Kimori: Great Doubt - Episode One
     [267530] = 16585, -- The LEGO Movie - Videogame
@@ -218,6 +220,7 @@ return {
     [972660] = 68189, -- Spiritfarer®: Farewell Edition
     [978520] = 78046, -- Legend of Keepers: Career of a Dungeon Manager
     [997070] = 67961, -- Marvel's Avengers
+    [1091500] = 2127, -- Cyberpunk 2077
     [1004640] = 169173, -- Final Fantasy Tactics: The Ivalice Chronicles
     [1026420] = 65275, -- Warsaw
     [1026680] = 3524, -- Final Fantasy VIII
