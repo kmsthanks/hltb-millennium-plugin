@@ -59,7 +59,6 @@ return {
     [65540] = 4024, -- Gothic
     [92300] = 152, -- A.R.E.S.: Extinction Agenda
     [98400] = 4301, -- Hard Reset: Extended Edition
-    [374320] = 26803, -- Dark Souls III
     [105450] = 15114, -- Age of Empires III: Complete Collection
     [107300] = 1317, -- Breath of Death VII: The Beginning
     [113020] = 6131, -- Monaco: What's Yours is Mine
@@ -119,7 +118,6 @@ return {
     [261510] = 15873, -- Tesla Effect: A Tex Murphy Adventure
     [262940] = 24028, -- Broken Sword 5: The Serpent's Curse
     [264240] = 13814, -- Consortium
-    
     [265550] = 14343, -- Dead Rising 3
     [265870] = 19072, -- Alpha Kimori: Great Doubt - Episode One
     [267530] = 16585, -- The LEGO Movie - Videogame
@@ -152,6 +150,7 @@ return {
     [351870] = 26977, -- Cultures: 8th Wonder of the World
     [354830] = 24484, -- Wolfenstein: The Old Blood
     [365590] = 20073, -- Tom Clancy's The Division
+    [374320] = 26803, -- Dark Souls III
     [374900] = 33609, -- Agatha Christie: The ABC Murders
     [383120] = 29056, -- Empyrion: Galactic Survival
     [393080] = 39302, -- Call of Duty: Modern Warfare - Remastered
@@ -220,7 +219,6 @@ return {
     [972660] = 68189, -- Spiritfarer®: Farewell Edition
     [978520] = 78046, -- Legend of Keepers: Career of a Dungeon Manager
     [997070] = 67961, -- Marvel's Avengers
-    [1091500] = 2127, -- Cyberpunk 2077
     [1004640] = 169173, -- Final Fantasy Tactics: The Ivalice Chronicles
     [1026420] = 65275, -- Warsaw
     [1026680] = 3524, -- Final Fantasy VIII
@@ -228,6 +226,7 @@ return {
     [1057810] = 57504, -- Wolfenstein: Youngblood
     [1063730] = 67832, -- New World
     [1086850] = 69410, -- Garden of the Sea
+    [1091500] = 2127, -- Cyberpunk 2077
     [1096570] = 72846, -- Song of Horror: Complete Edition
     [1119730] = 89349, -- Ranch Simulator
     [1133760] = 1704, -- Chrono Cross
