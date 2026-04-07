@@ -1,7 +1,7 @@
 name: Fix game_ids.lua
 
 on:
-  pull_request:
+  push:
     branches: [main]
     paths: ['backend/game_ids.lua']
 
@@ -12,12 +12,8 @@ jobs:
   fix:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR branch
+      - name: Checkout main
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Sort game_ids.lua
         run: |
