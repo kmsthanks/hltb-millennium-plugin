@@ -275,6 +275,7 @@ return {
     [1608070] = 109435, -- Crisis Core: Final Fantasy VII Reunion
     [1614440] = 111259, -- Bo: Path of the Teal Lotus
     [1652250] = 132441, -- Tales & Tactics
+    [1654660] = 129877, -- En Garde!
     [1659040] = 79774, -- Hitman 3
     [1717640] = 123574, -- Mahokenshi
     [1718130] = 114146, -- SCP: Secret Files
